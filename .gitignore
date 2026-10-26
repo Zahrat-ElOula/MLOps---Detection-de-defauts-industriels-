@@ -1,0 +1,42 @@
+# Data (managed by DVC)
+data/raw
+data/processed
+data/new_data
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Model artifacts (tracked by DVC or the model registry, never by Git)
+model_registry/*.onnx
+model_registry/*.pt
+model_registry/*.pth
+model_registry/*.torchscript
+
+# Frontend
+node_modules/
+dist/
+frontend/.vite/
+
+# Reports
+reports/*.pdf
+reports/figures/*
+!reports/figures/.gitkeep
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
