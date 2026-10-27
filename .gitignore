@@ -40,3 +40,6 @@ reports/figures/*
 Thumbs.db
 .vscode/
 .idea/
+mlflow.db
+model_registry/*.onnx.data
+model_registry/*.pt

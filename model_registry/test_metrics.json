@@ -1,0 +1,26 @@
+{
+  "metrics": {
+    "accuracy": 0.963855421686747,
+    "precision": 1.0,
+    "recall": 0.9523809523809523,
+    "f1": 0.975609756097561,
+    "confusion_matrix": [
+      [
+        20,
+        0
+      ],
+      [
+        3,
+        60
+      ]
+    ],
+    "mAP": 0.9995000314940791,
+    "auroc": 0.9984126984126984,
+    "iou_threshold": 0.5
+  },
+  "comparison": {
+    "passed": true,
+    "regressions": [],
+    "improvements": []
+  }
+}
