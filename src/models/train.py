@@ -78,8 +78,19 @@ def train(config, output_dir: Path | None = None,
 
     # 3. Modèle, loss, optim, scheduler
     model = build_model(config.model_name, num_classes=2, pretrained=True).to(device)
+    # --- Fine-tuning progressif : gel du backbone ---
+    for param in model.parameters():
+        param.requires_grad = False
+    for param in model.fc.parameters():
+        param.requires_grad = True
+
+    unfreeze_epoch = 5
+    logger.info(f"Backbone gelé. Dégel prévu à l'epoch {unfreeze_epoch}.")
+
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+    optimizer = torch.optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()), lr=config.lr
+    )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", patience=2)
 
     # 4. MLflow
@@ -102,6 +113,12 @@ def train(config, output_dir: Path | None = None,
         history = {"train_loss": [], "val_loss": [], "val_acc": [], "val_f1": []}
 
         for epoch in range(config.epochs):
+            if epoch == unfreeze_epoch:
+                for param in model.parameters():
+                    param.requires_grad = True
+                for g in optimizer.param_groups:
+                    g["lr"] = config.lr / 10
+                logger.info(f"Epoch {epoch+1} : dégel de toutes les couches, LR divisé par 10.")
             # --- train ---
             model.train()
             train_loss = 0.0
