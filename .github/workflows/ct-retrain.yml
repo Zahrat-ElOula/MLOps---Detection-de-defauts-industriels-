@@ -1,15 +1,7 @@
 name: CT - Retrain on new data
 
 on:
-  push:
-    paths:
-      - "data/new_data/**"
   workflow_dispatch:
-    inputs:
-      reason:
-        description: Why this retraining is triggered
-        required: false
-        default: manual
 
 concurrency:
   group: ct-retrain
