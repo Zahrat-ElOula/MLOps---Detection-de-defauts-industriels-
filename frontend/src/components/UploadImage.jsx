@@ -1,83 +1,53 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function UploadImage({ onFileSelected, disabled = false }) {
+  const { t } = useTranslation();
   const inputRef = useRef(null);
-  const [preview, setPreview] = useState(null);
 
   const handleClick = () => {
     if (disabled) return;
-    if (inputRef.current) {
-      inputRef.current.click();
-    }
+    inputRef.current?.click();
   };
 
-  const handleFile = (file) => {
-    if (!file) return;
-    if (disabled) return;
-    if (preview) {
-      URL.revokeObjectURL(preview);
-    }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    if (onFileSelected) {
+  const handleChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file && !disabled && onFileSelected) {
       onFileSelected(file);
     }
   };
 
-  const handleChange = (e) => {
-    const file = e.target.files && e.target.files[0];
-    handleFile(file);
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (disabled) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file && onFileSelected) {
+      onFileSelected(file);
+    }
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    if (disabled) return;
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    handleFile(file);
-  };
-
   return (
-    <div>
-      <div
-        onClick={handleClick}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        style={{
-          padding: "24px",
-          border: "2px dashed #cbd5e1",
-          borderRadius: "8px",
-          textAlign: "center",
-          cursor: disabled ? "not-allowed" : "pointer",
-          background: "#f8fafc",
-        }}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={handleChange}
-          disabled={disabled}
-        />
-        <div>Glissez-déposez une image ici ou cliquez pour choisir</div>
-      </div>
-      {preview && (
-        <img
-          src={preview}
-          alt="Aperçu"
-          style={{
-            maxWidth: "100%",
-            maxHeight: "300px",
-            objectFit: "contain",
-            marginTop: "12px",
-            borderRadius: "4px",
-          }}
-        />
-      )}
+    <div
+      onClick={handleClick}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      className={`bg-white rounded-2xl shadow-sm border-2 border-dashed border-slate-300 p-10 text-center transition-colors ${
+        disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:border-blue-400"
+      }`}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleChange}
+        disabled={disabled}
+      />
+      <p className="text-slate-600">{t("upload_drag")}</p>
     </div>
   );
 }

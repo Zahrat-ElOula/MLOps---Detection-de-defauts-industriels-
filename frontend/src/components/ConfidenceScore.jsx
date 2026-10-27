@@ -5,38 +5,23 @@ export default function ConfidenceScore({ probabilities = { good: 0, defect: 0 }
   const defect = probabilities.defect || 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
+    <div className="flex flex-col gap-4">
       <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="flex justify-between text-sm text-slate-700">
           <span>Good</span>
           <span>{(good * 100).toFixed(1)}%</span>
         </div>
-        <div style={{ height: "12px", borderRadius: "9999px", background: "#e5e7eb", margin: "4px 0" }}>
-          <div
-            style={{
-              height: "12px",
-              borderRadius: "9999px",
-              background: "#16a34a",
-              width: `${good * 100}%`,
-            }}
-          />
+        <div className="mt-2 bg-slate-100 rounded-full h-2 overflow-hidden">
+          <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${good * 100}%` }} />
         </div>
       </div>
-
       <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="flex justify-between text-sm text-slate-700">
           <span>Defect</span>
           <span>{(defect * 100).toFixed(1)}%</span>
         </div>
-        <div style={{ height: "12px", borderRadius: "9999px", background: "#e5e7eb", margin: "4px 0" }}>
-          <div
-            style={{
-              height: "12px",
-              borderRadius: "9999px",
-              background: "#dc2626",
-              width: `${defect * 100}%`,
-            }}
-          />
+        <div className="mt-2 bg-slate-100 rounded-full h-2 overflow-hidden">
+          <div className="bg-rose-500 h-2 rounded-full" style={{ width: `${defect * 100}%` }} />
         </div>
       </div>
     </div>
