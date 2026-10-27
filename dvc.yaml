@@ -1,0 +1,36 @@
+# DVC pipeline definition.
+# Stages are declared but intentionally left as skeletons: the underlying
+# Python entry points raise NotImplementedError until the DL module is built.
+stages:
+  train:
+    cmd: python pipelines/train_pipeline.py --params configs/params.yaml
+    deps:
+      - src/
+      - pipelines/train_pipeline.py
+      - data/raw
+    params:
+      - configs/params.yaml:
+          - model_name
+          - lr
+          - batch_size
+          - epochs
+          - image_size
+          - num_classes
+          - early_stopping_patience
+    outs:
+      - model_registry/model.pt:
+          cache: false
+    metrics:
+      - model_registry/train_metrics.json:
+          cache: false
+  evaluate:
+    cmd: python -m src.models.evaluate
+    deps:
+      - src/
+      - model_registry/model.pt
+      - data/raw
+    metrics:
+      - model_registry/baseline_metrics.json:
+          cache: false
+    plots:
+      - reports/figures

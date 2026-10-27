@@ -1,0 +1,13 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+mlruns
+mlartifacts
+data
+notebooks
+reports
+frontend/node_modules
+frontend/dist

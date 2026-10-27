@@ -1,0 +1,12 @@
+# Training hyperparameters for industrial-defect-detection.
+# All values are intentionally conservative defaults for a first baseline run.
+model_name: resnet18
+lr: 0.001
+batch_size: 32
+epochs: 20
+image_size: 224
+num_classes: 2
+early_stopping_patience: 5
+device: auto
+category: bottle
+data_root: data/raw

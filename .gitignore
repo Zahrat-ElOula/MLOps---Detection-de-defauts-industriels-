@@ -40,3 +40,4 @@ reports/figures/*
 Thumbs.db
 .vscode/
 .idea/
+mlflow.db
