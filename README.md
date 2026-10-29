@@ -1,55 +1,75 @@
-# industrial-defect-detection
+<div align="center">
 
-Detection de defauts industriels sur **MVTec AD** avec un module Deep Learning
-(PyTorch) et un module MLOps (CI/CD/CT, DVC, MLflow, FastAPI, Docker,
-Kubernetes/Minikube, monitoring et frontend React).
+# 🏭 Industrial Defect Detection
 
-> Statut : squelette de projet. Les signatures, la configuration, l'API, les
-> tests et les manifests sont en place ; les traitements metier (dataset,
-> entrainement, metriques, export, drift) sont a implementer.
+**Defect detection on the MVTec AD dataset, combining a Deep Learning module (PyTorch) with a complete MLOps stack.**
 
-## Description
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-EE4C2C?logo=pytorch&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-inference%20API-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-Vite-61DAFB?logo=react&logoColor=black)
+![DVC](https://img.shields.io/badge/DVC-data%20versioning-945DD6?logo=dvc&logoColor=white)
+![MLflow](https://img.shields.io/badge/MLflow-tracking-0194E2?logo=mlflow&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-containers-2496ED?logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube-326CE5?logo=kubernetes&logoColor=white)
 
-Le projet couvre deux axes :
+[Overview](#-overview) · [Structure](#-project-structure) · [Installation](#-installation) · [Usage](#-usage) · [Deep Learning](#-deep-learning-phase) · [MLOps](#-mlops-phase)
 
-- **Deep Learning** : classification / detection d'anomalies sur les images
-  MVTec AD (catégories telles que `bottle`, `metal_nut`, `screw`, ...).
-  Baseline : ResNet50, 2 classes (`good` / `defect`), images 224x224.
-- **MLOps** : versionnement des donnees avec DVC, tracking des experiences avec
-  MLflow, API d'inference FastAPI, conteneurisation Docker, deploiement
-  Kubernetes, integration et livraison continues GitHub Actions, re-entrainement
-  continu (CT) declenche par de nouvelles donnees, surveillance de la derive.
+</div>
 
-## Structure
+---
+
+> [!NOTE]
+> **Status: project skeleton.** Signatures, configuration, API, tests and manifests are in place. The business logic (dataset, training, metrics, export, drift) is still to be implemented.
+
+## 📋 Overview
+
+The project covers two complementary tracks:
+
+| Track | Scope |
+|-------|-------|
+| 🧠 **Deep Learning** | Classification / anomaly detection on MVTec AD images (categories such as `bottle`, `metal_nut`, `screw`, …). **Baseline:** ResNet50, 2 classes (`good` / `defect`), 224×224 images. |
+| ⚙️ **MLOps** | Data versioning with **DVC**, experiment tracking with **MLflow**, **FastAPI** inference API, **Docker** containerization, **Kubernetes** deployment, **GitHub Actions** CI/CD, continuous training (CT) triggered by new data, and drift monitoring. |
+
+## 🗂️ Project Structure
 
 ```text
 industrial-defect-detection/
 ├── .github/workflows/        # CI, CT (retrain), CD (deploy)
 ├── configs/                  # params.yaml, alerting.yaml
-├── data/                     # raw/, processed/, new_data/ (DVC, hors Git)
+├── data/                     # raw/, processed/, new_data/ (DVC, not in Git)
 ├── docker/                   # Dockerfiles + docker-compose
-├── frontend/                 # UI React (Vite)
+├── frontend/                 # React UI (Vite)
 ├── k8s/                      # deployment, service, hpa
-├── model_registry/           # baseline_metrics.json + artefacts (hors Git)
-├── notebooks/                # EDA, experiences, analyse d'evaluation
+├── model_registry/           # baseline_metrics.json + artifacts (not in Git)
+├── notebooks/                # EDA, experiments, evaluation analysis
 ├── pipelines/                # train_pipeline.py, prefect_flow.py
-├── reports/                  # figures et rapports
+├── reports/                  # figures and reports
 ├── src/                      # config, data, models, api, monitoring, utils
-├── tests/                    # tests unitaires et non-regression
-├── dvc.yaml / dvc.lock       # pipeline de donnees reproductible
+├── tests/                    # unit and non-regression tests
+├── dvc.yaml / dvc.lock       # reproducible data pipeline
 ├── Makefile
 └── requirements.txt
 ```
 
-## Installation
+## 📦 Installation
 
-Prerequis : Python 3.11, Git, DVC (installe via `requirements.txt`), Node.js 22+
-pour le frontend, Docker et Minikube/Kubectl pour le deploiement.
+### Prerequisites
+
+| Tool | Needed for |
+|------|-----------|
+| Python 3.11 | Backend and training |
+| Git | Version control |
+| DVC | Data versioning *(installed via `requirements.txt`)* |
+| Node.js 22+ | Frontend |
+| Docker, Minikube, `kubectl` | Containerization and deployment |
+
+### 1. Backend
 
 ```bash
 python3.11 -m venv .venv
-# Windows : py -3.11 -m venv .venv
-source .venv/bin/activate            # Windows : .venv\Scripts\activate
+# Windows: py -3.11 -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
 
 pip install --upgrade pip
 pip install -r requirements.txt
@@ -57,7 +77,7 @@ pip install -r requirements.txt
 cp .env.example .env 2>/dev/null || true
 ```
 
-Frontend :
+### 2. Frontend
 
 ```bash
 cd frontend
@@ -65,95 +85,105 @@ npm install
 cd ..
 ```
 
-Donnees (MVTec AD n'est pas versionne dans Git) :
+### 3. Data
+
+> [!IMPORTANT]
+> MVTec AD is **not** versioned in Git. Download it from the [official MVTec page](https://www.mvtec.com/company/research/datasets/mvtec-ad), place the categories in `data/raw/`, then track them with DVC:
 
 ```bash
-# telecharger MVTec AD depuis https://www.mvtec.com/company/research/datasets/mvtec-ad
-# puis placer les categories dans data/raw/
 dvc add data/raw
 git add data/raw.dvc data/.gitignore .gitignore
 git commit -m "data: track MVTec AD with DVC"
 ```
 
-## Utilisation
+## 🚀 Usage
 
-```bash
-make help            # liste des commandes
-make install         # venv + dependances
-make train           # pipeline d'entrainement
-make test            # pytest
-make api             # http://localhost:8000/docs
-make frontend        # http://localhost:5173
-make docker-build
-make docker-up       # API :8000, frontend :5173
-make dvc-init
-make dvc-pull
-make clean
-```
+### Make commands
 
-Endpoints principaux :
+| Command | Description |
+|---------|-------------|
+| `make help` | List all commands |
+| `make install` | Create the venv and install dependencies |
+| `make train` | Run the training pipeline |
+| `make test` | Run `pytest` |
+| `make api` | Start the API → http://localhost:8000/docs |
+| `make frontend` | Start the UI → http://localhost:5173 |
+| `make docker-build` | Build the Docker images |
+| `make docker-up` | Start the stack (API `:8000`, frontend `:5173`) |
+| `make dvc-init` | Initialize DVC |
+| `make dvc-pull` | Pull versioned data |
+| `make clean` | Remove generated files |
 
-| Methode | Route      | Description                              |
-|---------|------------|------------------------------------------|
-| GET     | `/health`  | Etat du service et du modele charge      |
-| POST    | `/predict` | Upload d'image -> classe + confiance     |
-| GET     | `/docs`    | Documentation OpenAPI                    |
+### API endpoints
 
-Exemple :
+| Method | Route | Description |
+|:------:|-------|-------------|
+| `GET` | `/health` | Service status and loaded model |
+| `POST` | `/predict` | Image upload → class + confidence |
+| `GET` | `/docs` | OpenAPI documentation |
+
+**Example:**
 
 ```bash
 curl -F "file=@data/raw/bottle/test/broken_large/000.png" \
      http://localhost:8000/predict
 ```
 
-## Phase DL
+## 🧠 Deep Learning Phase
 
-1. EDA dans `notebooks/01_eda.ipynb` (distribution des classes, tailles,
-   desequilibre, exemples de defauts).
-2. Entrainement dans `src/models/train.py` : split train/val, early stopping,
-   suivi MLflow (parametres, metriques, artefacts).
-3. Evaluation dans `src/models/evaluate.py` : accuracy, F1, mAP et matrice de
-   confusion ; comparaison au baseline `model_registry/baseline_metrics.json`.
-4. Export ONNX / TorchScript via `src/utils/export.py` pour l'inference.
+| # | Step | Location |
+|:-:|------|----------|
+| 1 | **EDA**: class distribution, image sizes, imbalance, defect examples | `notebooks/01_eda.ipynb` |
+| 2 | **Training**: train/val split, early stopping, MLflow tracking (parameters, metrics, artifacts) | `src/models/train.py` |
+| 3 | **Evaluation**: accuracy, F1, mAP, confusion matrix; comparison with `model_registry/baseline_metrics.json` | `src/models/evaluate.py` |
+| 4 | **Export**: ONNX / TorchScript for inference | `src/utils/export.py` |
 
-## Phase MLOps
+## ⚙️ MLOps Phase
 
-- **CI** (`ci.yml`) : lint/tests sur chaque push et pull request.
-- **CT** (`ct-retrain.yml`) : nouveau lot dans `data/new_data/**` -> DVC add,
-  re-entrainement, tests de non-regression, mise a jour du baseline si succes.
-- **CD** (`cd-deploy.yml`) : apres une CI verte -> build/push des images Docker,
-  `kubectl apply` sur Minikube.
-- **Monitoring** : `src/monitoring/drift.py` calcule la derive des features et
-  compare les metriques aux seuils de `configs/alerting.yaml`.
+### Automation workflows
 
-### Seuils d'alerte
+```mermaid
+flowchart LR
+    P[Push / Pull Request] --> CI[CI<br/>lint + tests]
+    ND[New data in<br/>data/new_data/**] --> CT[CT<br/>DVC add → retrain<br/>→ non-regression tests<br/>→ update baseline]
+    CI -->|green| CD[CD<br/>build & push images<br/>→ kubectl apply]
+    CT --> M[Monitoring<br/>drift + alert thresholds]
+    CD --> M
+```
 
-| Metrique   | Seuil |
-|------------|-------|
-| accuracy   | 0.85  |
-| f1         | 0.80  |
-| mAP        | 0.70  |
-| drift      | 0.10  |
+| Workflow | File | Trigger and actions |
+|----------|------|---------------------|
+| **CI** | `ci.yml` | Lint and tests on every push and pull request |
+| **CT** | `ct-retrain.yml` | New batch in `data/new_data/**` → DVC add, retraining, non-regression tests, baseline update on success |
+| **CD** | `cd-deploy.yml` | After a green CI → build/push Docker images, `kubectl apply` on Minikube |
+| **Monitoring** | `src/monitoring/drift.py` | Computes feature drift and compares metrics against the thresholds in `configs/alerting.yaml` |
 
-Une metrique inferieure au seuil (ou une derive superieure au seuil) bloque la
-promotion du modele et declenche une alerte.
+### 🚨 Alert thresholds
 
-### Kubernetes (Minikube)
+| Metric | Threshold | Condition for promotion |
+|--------|:---------:|-------------------------|
+| `accuracy` | **0.85** | must be ≥ threshold |
+| `f1` | **0.80** | must be ≥ threshold |
+| `mAP` | **0.70** | must be ≥ threshold |
+| `drift` | **0.10** | must be ≤ threshold |
+
+> [!WARNING]
+> A metric below its threshold (or drift above its threshold) **blocks model promotion** and **triggers an alert**.
+
+### ☸️ Kubernetes (Minikube)
 
 ```bash
 minikube start
-eval $(minikube docker-env)          # PowerShell : & minikube -p minikube docker-env | Invoke-Expression
+eval $(minikube docker-env)          # PowerShell: & minikube -p minikube docker-env | Invoke-Expression
 docker build -f docker/Dockerfile.api -t industrial-defect-detection/api:latest .
 kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml -f k8s/hpa.yaml
 minikube service industrial-defect-api
 ```
 
-## Livrables
+---
 
-- [ ] Rapport d'EDA (`reports/`)
-- [ ] Modele baseline + metriques (`model_registry/baseline_metrics.json`)
-- [ ] API FastAPI conteneurisee
-- [ ] Interface React de demonstration
-- [ ] Pipeline CI/CD/CT operationnel
-- [ ] Deploiement Kubernetes (2 replicas, HPA 2-5)
-- [ ] Rapport de derive et procedure d'alerte
+<div align="center">
+
+Built with **PyTorch**, **FastAPI**, **DVC**, **MLflow**, **Docker** and **Kubernetes** 🚀
+
+</div>
