@@ -2,188 +2,63 @@
 
 # 🏭 Industrial Defect Detection
 
-**Defect detection on the MVTec AD dataset, combining a Deep Learning module (PyTorch) with a complete MLOps stack.**
+**Détection de défauts sur le dataset MVTec AD, combinant un module Deep Learning (PyTorch/YOLO) et une stack MLOps complète.**
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-EE4C2C?logo=pytorch&logoColor=white)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-Object%20Detection-00FFFF?logo=ultralytics&logoColor=black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-inference%20API-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-Vite-61DAFB?logo=react&logoColor=black)
 ![DVC](https://img.shields.io/badge/DVC-data%20versioning-945DD6?logo=dvc&logoColor=white)
 ![MLflow](https://img.shields.io/badge/MLflow-tracking-0194E2?logo=mlflow&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-containers-2496ED?logo=docker&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube-326CE5?logo=kubernetes&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?logo=github-actions&logoColor=white)
 
-[Overview](#-overview) · [Structure](#-project-structure) · [Installation](#-installation) · [Usage](#-usage) · [Deep Learning](#-deep-learning-phase) · [MLOps](#-mlops-phase)
+[Architecture](#-architecture) · [Fonctionnalités](#-features) · [Installation](#-installation) · [Usage](#-usage)
 
 </div>
 
 ---
 
 > [!NOTE]
-> **Status: project skeleton.** Signatures, configuration, API, tests and manifests are in place. The business logic (dataset, training, metrics, export, drift) is still to be implemented.
+> **Statut : Projet terminé.** Le système est fonctionnel de bout en bout, avec une architecture à deux étages (classification + détection), une API conteneurisée, une interface web moderne et une boucle de rétroaction pour le Continuous Training.
 
 ## 📋 Overview
 
-The project covers two complementary tracks:
+Le projet couvre deux volets complémentaires :
 
-| Track | Scope |
-|-------|-------|
-| 🧠 **Deep Learning** | Classification / anomaly detection on MVTec AD images (categories such as `bottle`, `metal_nut`, `screw`, …). **Baseline:** ResNet50, 2 classes (`good` / `defect`), 224×224 images. |
-| ⚙️ **MLOps** | Data versioning with **DVC**, experiment tracking with **MLflow**, **FastAPI** inference API, **Docker** containerization, **Kubernetes** deployment, **GitHub Actions** CI/CD, continuous training (CT) triggered by new data, and drift monitoring. |
+| Volet | Périmètre |
+|-------|-----------|
+| 🧠 **Deep Learning** | Classification (ResNet18) et détection (YOLOv8) sur les images industrielles (MVTec AD). Gestion du Fine-Tuning progressif et des bounding boxes. |
+| ⚙️ **MLOps** | Data versioning (DVC), tracking (MLflow), API FastAPI, conteneurisation (Docker), CI/CD (GitHub Actions), et boucle de Feedback (Active Learning). |
 
-## 🗂️ Project Structure
+## 🏗 Architecture
 
-```text
-industrial-defect-detection/
-├── .github/workflows/        # CI, CT (retrain), CD (deploy)
-├── configs/                  # params.yaml, alerting.yaml
-├── data/                     # raw/, processed/, new_data/ (DVC, not in Git)
-├── docker/                   # Dockerfiles + docker-compose
-├── frontend/                 # React UI (Vite)
-├── k8s/                      # deployment, service, hpa
-├── model_registry/           # baseline_metrics.json + artifacts (not in Git)
-├── notebooks/                # EDA, experiments, evaluation analysis
-├── pipelines/                # train_pipeline.py, prefect_flow.py
-├── reports/                  # figures and reports
-├── src/                      # config, data, models, api, monitoring, utils
-├── tests/                    # unit and non-regression tests
-├── dvc.yaml / dvc.lock       # reproducible data pipeline
-├── Makefile
-└── requirements.txt
-```
+![Architecture](https://raw.githubusercontent.com/Zahrat-ElOula/MLOps---Detection-de-defauts-industriels-/main/docs/architecture.png)
+*(Note : Si l'image ne s'affiche pas, veuillez vous référer à la capture ci-dessus ou au diagramme Draw.io inclus dans le dossier `docs/`)*
+
+1. **Data & Training** : Le dataset est versionné par DVC. Les pipelines d'entraînement génèrent des modèles sérialisés en ONNX. MLflow trace chaque expérience.
+2. **Serving** : L'API FastAPI charge les modèles ONNX et expose `/predict` (classifieur + YOLO) et `/feedback`. Le Frontend React permet l'upload, la webcam et l'affichage des bounding boxes.
+3. **MLOps** : Les erreurs signalées par les utilisateurs sont stockées dans `data/feedback/` pour déclencher le Continuous Training (CT) via GitHub Actions. Docker orchestre le tout.
+
+## 🚀 Features
+
+- **Double modèle** : ResNet18 (bonne/mauvaise pièce) + YOLOv8 (localisation du défaut).
+- **Interface React** : Design moderne (Tailwind), i18n (FR/EN), caméra temps réel, overlay des bounding boxes.
+- **Boucle MLOps** : Bouton "Signaler une erreur" qui sauvegarde l'image et le label corrigé dans `data/feedback/`.
+- **Versioning** : Git (code), DVC (données), MLflow (expériences).
+- **17 Tests** : Validation de l'API, des données et des métriques de non-régression.
+- **CI GitHub Actions** : Workflow qui installe `libgl1` et skippe les tests YOLO si le modèle n'est pas présent.
 
 ## 📦 Installation
 
-### Prerequisites
+### Prérequis
+- Python 3.11
+- Node.js 22+
+- Docker Desktop
 
-| Tool | Needed for |
-|------|-----------|
-| Python 3.11 | Backend and training |
-| Git | Version control |
-| DVC | Data versioning *(installed via `requirements.txt`)* |
-| Node.js 22+ | Frontend |
-| Docker, Minikube, `kubectl` | Containerization and deployment |
-
-### 1. Backend
-
+### 1. Backend & API
 ```bash
-python3.11 -m venv .venv
-# Windows: py -3.11 -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
-
-pip install --upgrade pip
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1  # Windows
 pip install -r requirements.txt
-
-cp .env.example .env 2>/dev/null || true
-```
-
-### 2. Frontend
-
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-### 3. Data
-
-> [!IMPORTANT]
-> MVTec AD is **not** versioned in Git. Download it from the [official MVTec page](https://www.mvtec.com/company/research/datasets/mvtec-ad), place the categories in `data/raw/`, then track them with DVC:
-
-```bash
-dvc add data/raw
-git add data/raw.dvc data/.gitignore .gitignore
-git commit -m "data: track MVTec AD with DVC"
-```
-
-## 🚀 Usage
-
-### Make commands
-
-| Command | Description |
-|---------|-------------|
-| `make help` | List all commands |
-| `make install` | Create the venv and install dependencies |
-| `make train` | Run the training pipeline |
-| `make test` | Run `pytest` |
-| `make api` | Start the API → http://localhost:8000/docs |
-| `make frontend` | Start the UI → http://localhost:5173 |
-| `make docker-build` | Build the Docker images |
-| `make docker-up` | Start the stack (API `:8000`, frontend `:5173`) |
-| `make dvc-init` | Initialize DVC |
-| `make dvc-pull` | Pull versioned data |
-| `make clean` | Remove generated files |
-
-### API endpoints
-
-| Method | Route | Description |
-|:------:|-------|-------------|
-| `GET` | `/health` | Service status and loaded model |
-| `POST` | `/predict` | Image upload → class + confidence |
-| `GET` | `/docs` | OpenAPI documentation |
-
-**Example:**
-
-```bash
-curl -F "file=@data/raw/bottle/test/broken_large/000.png" \
-     http://localhost:8000/predict
-```
-
-## 🧠 Deep Learning Phase
-
-| # | Step | Location |
-|:-:|------|----------|
-| 1 | **EDA**: class distribution, image sizes, imbalance, defect examples | `notebooks/01_eda.ipynb` |
-| 2 | **Training**: train/val split, early stopping, MLflow tracking (parameters, metrics, artifacts) | `src/models/train.py` |
-| 3 | **Evaluation**: accuracy, F1, mAP, confusion matrix; comparison with `model_registry/baseline_metrics.json` | `src/models/evaluate.py` |
-| 4 | **Export**: ONNX / TorchScript for inference | `src/utils/export.py` |
-
-## ⚙️ MLOps Phase
-
-### Automation workflows
-
-```mermaid
-flowchart LR
-    P[Push / Pull Request] --> CI[CI<br/>lint + tests]
-    ND[New data in<br/>data/new_data/**] --> CT[CT<br/>DVC add → retrain<br/>→ non-regression tests<br/>→ update baseline]
-    CI -->|green| CD[CD<br/>build & push images<br/>→ kubectl apply]
-    CT --> M[Monitoring<br/>drift + alert thresholds]
-    CD --> M
-```
-
-| Workflow | File | Trigger and actions |
-|----------|------|---------------------|
-| **CI** | `ci.yml` | Lint and tests on every push and pull request |
-| **CT** | `ct-retrain.yml` | New batch in `data/new_data/**` → DVC add, retraining, non-regression tests, baseline update on success |
-| **CD** | `cd-deploy.yml` | After a green CI → build/push Docker images, `kubectl apply` on Minikube |
-| **Monitoring** | `src/monitoring/drift.py` | Computes feature drift and compares metrics against the thresholds in `configs/alerting.yaml` |
-
-### 🚨 Alert thresholds
-
-| Metric | Threshold | Condition for promotion |
-|--------|:---------:|-------------------------|
-| `accuracy` | **0.85** | must be ≥ threshold |
-| `f1` | **0.80** | must be ≥ threshold |
-| `mAP` | **0.70** | must be ≥ threshold |
-| `drift` | **0.10** | must be ≤ threshold |
-
-> [!WARNING]
-> A metric below its threshold (or drift above its threshold) **blocks model promotion** and **triggers an alert**.
-
-### ☸️ Kubernetes (Minikube)
-
-```bash
-minikube start
-eval $(minikube docker-env)          # PowerShell: & minikube -p minikube docker-env | Invoke-Expression
-docker build -f docker/Dockerfile.api -t industrial-defect-detection/api:latest .
-kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml -f k8s/hpa.yaml
-minikube service industrial-defect-api
-```
-
----
-
-<div align="center">
-
-Built with **PyTorch**, **FastAPI**, **DVC**, **MLflow**, **Docker** and **Kubernetes** 🚀
-
-</div>
