@@ -53,3 +53,6 @@ model_registry/yolo_runs/
 model_registry/yolo_best.pt
 model_registry/yolo_best.onnx
 yolov8n.pt
+
+# Feedback Loop (Continuous Training)
+data/feedback/

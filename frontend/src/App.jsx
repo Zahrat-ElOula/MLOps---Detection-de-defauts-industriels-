@@ -4,7 +4,7 @@ import UploadImage from "./components/UploadImage";
 import CameraCapture from "./components/CameraCapture";
 import ResultOverlay from "./components/ResultOverlay";
 import ConfidenceScore from "./components/ConfidenceScore";
-import { predictImage } from "./services/api";
+import { predictImage, sendFeedback } from "./services/api";
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -14,11 +14,20 @@ function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [showFeedbackOptions, setShowFeedbackOptions] = useState(false);
+  const [feedbackThanks, setFeedbackThanks] = useState(false);
 
   const clearPreview = () => {
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
     }
+  };
+
+  const resetFeedback = () => {
+    setFeedbackSent(false);
+    setShowFeedbackOptions(false);
+    setFeedbackThanks(false);
   };
 
   const onFileSelected = (f) => {
@@ -27,6 +36,7 @@ function App() {
     setImageUrl(URL.createObjectURL(f));
     setResult(null);
     setError(null);
+    resetFeedback();
   };
 
   const onCapture = (f) => {
@@ -35,12 +45,14 @@ function App() {
     setImageUrl(URL.createObjectURL(f));
     setResult(null);
     setError(null);
+    resetFeedback();
   };
 
   const onAnalyze = async () => {
     if (!file) return;
     setLoading(true);
     setError(null);
+    resetFeedback();
     try {
       const r = await predictImage(file);
       setResult(r);
@@ -52,6 +64,19 @@ function App() {
     }
   };
 
+  const onFeedback = async (label) => {
+    if (!file) return;
+    try {
+      await sendFeedback(file, label);
+      setFeedbackSent(true);
+      setShowFeedbackOptions(false);
+      setFeedbackThanks(true);
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      setError(detail || e.message || t("error_generic"));
+    }
+  };
+
   const onReset = () => {
     clearPreview();
     setFile(null);
@@ -59,6 +84,7 @@ function App() {
     setResult(null);
     setError(null);
     setLoading(false);
+    resetFeedback();
   };
 
   const toggleLang = () => {
@@ -105,6 +131,46 @@ function App() {
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
                 <img src={imageUrl} alt="preview" className="w-full max-h-[320px] object-contain rounded-xl" />
               </div>
+            )}
+
+            {result && !feedbackSent && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-3">
+                {showFeedbackOptions ? (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => onFeedback("good")}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2"
+                    >
+                      C'est Good
+                    </button>
+                    <button
+                      onClick={() => onFeedback("defect")}
+                      className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-4 py-2"
+                    >
+                      C'est Defect
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setFeedbackSent(true)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2"
+                    >
+                      Confirmer
+                    </button>
+                    <button
+                      onClick={() => setShowFeedbackOptions(true)}
+                      className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-4 py-2"
+                    >
+                      Signaler une erreur
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {feedbackSent && feedbackThanks && (
+              <p className="text-emerald-600 font-medium">Merci, feedback enregistré</p>
             )}
 
             <div className="flex gap-3">

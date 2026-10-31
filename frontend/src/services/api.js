@@ -11,6 +11,16 @@ export async function predictImage(file) {
   return data;
 }
 
+export async function sendFeedback(file, label) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("label", label);
+  const { data } = await axios.post(`${API_BASE}/feedback`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
 export async function health() {
   const { data } = await axios.get(`${API_BASE}/health`);
   return data;

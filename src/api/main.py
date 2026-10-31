@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.inference import ModelLoader
@@ -107,3 +109,22 @@ async def predict(file: UploadFile = File(...)) -> PredictionResponse:
 
     logger.info(f"Returning result with {len(result.get('boxes', []))} boxes")
     return result
+
+
+@app.post("/feedback", tags=["feedback"])
+async def feedback(file: UploadFile = File(...), label: str = Form(...)):
+    """Store a user-corrected label next to the image for continuous training."""
+    feedback_dir = Path("data/feedback")
+    feedback_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    image_path = feedback_dir / f"{timestamp}_{file.filename or 'image'}"
+
+    payload = await file.read()
+    image_path.write_bytes(payload)
+
+    label_path = image_path.with_suffix(".txt")
+    label_path.write_text(label, encoding="utf-8")
+
+    logger.info(f"Feedback saved: {image_path} (label={label})")
+    return {"status": "success", "message": "Feedback enregistré dans data/feedback/"}

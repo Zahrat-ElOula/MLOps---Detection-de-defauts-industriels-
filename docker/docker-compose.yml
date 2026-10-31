@@ -16,6 +16,7 @@ services:
       LOG_JSON: "1"
     volumes:
       - ../model_registry:/app/model_registry:ro
+      - ../data/feedback:/app/data/feedback 
     healthcheck:
       test:
         - CMD
