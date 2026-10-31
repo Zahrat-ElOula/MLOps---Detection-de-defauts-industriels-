@@ -1,0 +1,5 @@
+outs:
+- md5: 17ce7853da3d8ee5cd52e1af9bc3e35f
+  size: 12773203
+  hash: md5
+  path: yolo_best.onnx

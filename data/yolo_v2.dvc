@@ -1,0 +1,6 @@
+outs:
+- md5: 2db5921ccc92ad680705bd3a3ddeb119.dir
+  size: 875098373
+  nfiles: 1905
+  hash: md5
+  path: yolo_v2
