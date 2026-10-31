@@ -1,6 +1,7 @@
 """Contract tests for the FastAPI application."""
 
 from __future__ import annotations
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +10,7 @@ from src.api.main import app
 
 client = TestClient(app)
 
+YOLO_AVAILABLE = (Path(__file__).resolve().parents[1] / "model_registry" / "yolo_best.onnx").is_file()
 
 def test_health_endpoint() -> None:
     """GET /health reports a live service, even without a model."""
@@ -39,7 +41,7 @@ def test_predict_rejects_non_image_upload() -> None:
 
     assert response.status_code == 415
 
-
+@pytest.mark.skipif(not YOLO_AVAILABLE, reason="yolo_best.onnx not available (DVC-tracked)")
 def test_predict_without_loaded_model_returns_503(monkeypatch) -> None:
     """POST /predict is unavailable until an artefact is registered."""
     from src.api import main as api_main
