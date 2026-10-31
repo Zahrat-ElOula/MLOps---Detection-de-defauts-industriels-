@@ -35,8 +35,7 @@ Le projet couvre deux volets complémentaires :
 
 ## 🏗 Architecture
 
-![Architecture](https://raw.githubusercontent.com/Zahrat-ElOula/MLOps---Detection-de-defauts-industriels-/main/docs/architecture.png)
-*(Note : Si l'image ne s'affiche pas, veuillez vous référer à la capture ci-dessus ou au diagramme Draw.io inclus dans le dossier `docs/`)*
+![Architecture](https://raw.githubusercontent.com/Zahrat-ElOula/MLOps---Detection-de-defauts-industriels-/architecture.png)
 
 1. **Data & Training** : Le dataset est versionné par DVC. Les pipelines d'entraînement génèrent des modèles sérialisés en ONNX. MLflow trace chaque expérience.
 2. **Serving** : L'API FastAPI charge les modèles ONNX et expose `/predict` (classifieur + YOLO) et `/feedback`. Le Frontend React permet l'upload, la webcam et l'affichage des bounding boxes.
