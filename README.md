@@ -1,3 +1,4 @@
+
 <div align="center">
 
 # 🏭 Industrial Defect Detection
@@ -62,3 +63,71 @@ Le projet couvre deux volets complémentaires :
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1  # Windows
 pip install -r requirements.txt
+```
+
+### 2. Data
+```bash
+# Télécharger MVTec AD et le placer dans data/raw/
+dvc pull  # Récupérer les données versionnées
+```
+
+### 3. Frontend
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+## 🚀 Usage
+
+### Docker (Recommandé)
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
+```
+- **Frontend** : http://localhost:5173
+- **API Swagger** : http://localhost:8000/docs
+
+### Entraînement & Évaluation
+```bash
+python pipelines/train_pipeline.py --params configs/params.yaml
+python scripts/train_yolo.py
+python -m src.models.evaluate
+```
+
+### Tests
+```bash
+pytest tests -v  # 17 tests
+```
+
+## 🧠 Deep Learning Phase
+
+| Étape | Fichier | Description |
+|:-:|------|----------|
+| 1 | `src/models/train.py` | Fine-Tuning progressif (ResNet18) avec MLflow et Early Stopping. |
+| 2 | `scripts/train_yolo.py` | Entraînement YOLOv8 sur les bounding boxes (15 catégories). |
+| 3 | `src/models/evaluate.py` | Calcul du F1-score, mAP et comparaison avec `baseline_metrics.json`. |
+| 4 | `src/utils/export.py` | Export ONNX avec vérification de fidélité (Max diff < 1e-4). |
+
+## ⚙️ MLOps Phase
+
+### Automatisation (CI/CT)
+| Workflow | Déclencheur | Action |
+|----------|------------|--------|
+| **CI** | Push / PR | Installe `libgl1`, exécute `pytest` (skip YOLO si absent). |
+| **CT** | Nouveaux fichiers dans `data/feedback/` | Réentraînement automatique + tests de non-régression. |
+
+### ☸️ Kubernetes (Optionnel)
+```bash
+minikube start
+kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+minikube service industrial-defect-api
+```
+
+---
+
+<div align="center">
+
+Built with **PyTorch**, **YOLOv8**, **FastAPI**, **DVC**, **MLflow** and **Docker** 🚀
+
+</div>
+```
