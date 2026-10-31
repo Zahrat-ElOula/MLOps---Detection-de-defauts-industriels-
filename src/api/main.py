@@ -10,23 +10,40 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.inference import ModelLoader
 from src.api.schemas import HealthResponse, PredictionResponse
-from src.config import Config
+from src.config import Config, PROJECT_ROOT
+from src.models.yolo_detector import YOLODetector
 from src.utils.logger import configure_logging
 
 configure_logging()
 logger = logging.getLogger(__name__)
 
-model_loader = ModelLoader()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    model_loader.load()
-    if model_loader.is_loaded():
-        logger.info(f"Model loaded from {model_loader.model_path}")
+    # Charger le classifieur
+    loader = ModelLoader()
+    loader.load()
+    app.state.model_loader = loader
+    if loader.is_loaded():
+        logger.info(f"Model loaded from {loader.model_path}")
     else:
-        logger.warning("Model file not found, /predict will return 503")
-    app.state.model_loader = model_loader
+        logger.warning("Classifier not loaded")
+
+    # Charger YOLO
+    yolo_path = PROJECT_ROOT / "model_registry" / "yolo_best.onnx"
+    if yolo_path.exists():
+        try:
+            detector = YOLODetector(yolo_path)
+            app.state.yolo_detector = detector
+            logger.info(f"YOLO detector loaded from {yolo_path}")
+        except Exception as exc:
+            logger.warning(f"Failed to load YOLO: {exc}")
+            app.state.yolo_detector = None
+    else:
+        logger.warning(f"YOLO file not found: {yolo_path}")
+        app.state.yolo_detector = None
+
+    logger.info(f"YOLO loaded: {getattr(app.state, 'yolo_detector', None) is not None}")
     yield
 
 
@@ -39,7 +56,6 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    # allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,65 +64,46 @@ app.add_middleware(
 
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 def health() -> HealthResponse:
-    """Liveness/readiness probe used by Docker and Kubernetes."""
-    loader = getattr(app.state, "model_loader", None) or model_loader
-    if loader is None:
-        return {"status": "ok", "model_loaded": False}
-    try:
-        il = getattr(loader, "is_loaded")
-        if callable(il):
-            model_loaded = bool(il())
-        else:
-            model_loaded = bool(il)
-    except Exception:
-        model_loaded = False
-    if not model_loaded:
-        try:
-            if getattr(loader, "_session", None) is not None or getattr(loader, "session", None) is not None or getattr(loader, "_model", None) is not None:
-                model_loaded = True
-        except Exception:
-            pass
-    return {"status": "ok", "model_loaded": bool(model_loaded)}
+    loader = getattr(app.state, "model_loader", None)
+    return {
+        "status": "ok",
+        "model_loaded": loader.is_loaded() if loader else False,
+    }
 
 
 @app.get("/config", tags=["system"])
 def read_config():
-    """Expose non-secret configuration and alert thresholds."""
     config = Config.load()
     return {"params": dict(config.params), "alerting": dict(config.alerting)}
 
 
 @app.post("/predict", response_model=PredictionResponse, tags=["inference"])
 async def predict(file: UploadFile = File(...)) -> PredictionResponse:
-    """Classify an uploaded image as ``good`` or ``defect``."""
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=415, detail="File must be an image")
 
     payload = await file.read()
-    loader = getattr(app.state, "model_loader", None) or model_loader
-    if loader is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
-    loaded = False
-    try:
-        il = getattr(loader, "is_loaded")
-        if callable(il):
-            loaded = bool(il())
-        else:
-            loaded = bool(il)
-        if not loaded and getattr(loader, "_session", None) is not None:
-            loaded = True
-        if not loaded and getattr(loader, "session", None) is not None:
-            loaded = True
-        if not loaded and getattr(loader, "_model", None) is not None:
-            loaded = True
-    except Exception:
-        loaded = False
-    if not loaded:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+    loader = getattr(app.state, "model_loader", None)
+    if loader is None or not loader.is_loaded():
+        raise HTTPException(status_code=503, detail="Classifier not loaded")
 
     try:
         result = loader.predict(payload)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Prediction failed: {e}")
 
+    if result.get("label") == "defect" and float(result.get("confidence", 1.0)) < 0.5:
+        raise HTTPException(status_code=422, detail="Catégorie non reconnue ou incertaine.")
+
+    detector = getattr(app.state, "yolo_detector", None)
+    if result.get("label") == "defect" and detector is not None:
+        try:
+            result["boxes"] = detector.detect(payload)
+        except Exception as e:
+            logger.warning(f"YOLO detection failed: {e}")
+            result["boxes"] = []
+    else:
+        result["boxes"] = []
+
+    logger.info(f"Returning result with {len(result.get('boxes', []))} boxes")
     return result

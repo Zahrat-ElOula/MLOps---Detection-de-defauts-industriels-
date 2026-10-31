@@ -127,7 +127,7 @@ function App() {
           <div>
             {result ? (
               <div className="flex flex-col gap-4">
-                <ResultOverlay imageUrl={imageUrl} result={result} />
+                <ResultOverlay imageUrl={imageUrl} result={result} boxes={result.boxes || []} />
                 <ConfidenceScore probabilities={result.probabilities} />
               </div>
             ) : (

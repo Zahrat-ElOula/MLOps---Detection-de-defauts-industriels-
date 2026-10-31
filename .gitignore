@@ -43,3 +43,13 @@ Thumbs.db
 mlflow.db
 model_registry/*.onnx.data
 model_registry/*.pt
+
+# Données YOLO (gérées par DVC)
+data/yolo_v2/
+data/yolo/
+
+# Artefacts d'entraînement YOLO
+model_registry/yolo_runs/
+model_registry/yolo_best.pt
+model_registry/yolo_best.onnx
+yolov8n.pt
