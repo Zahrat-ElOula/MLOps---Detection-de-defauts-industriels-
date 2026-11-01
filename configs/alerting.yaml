@@ -1,6 +1,6 @@
 # Quality gates and alert thresholds.
 # A model failing any threshold must not be promoted to production.
-accuracy_threshold: 0.85
+accuracy_threshold: 0.99
 f1_threshold: 0.80
 mAP_threshold: 0.70
 drift_threshold: 0.10

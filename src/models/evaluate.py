@@ -13,10 +13,12 @@ from pathlib import Path
 from typing import Any, Sequence
 
 import numpy as np
+import yaml
 
 from src.config import PROJECT_ROOT, Config
 
 MODEL_REGISTRY_DIR = PROJECT_ROOT / "model_registry"
+REPORTS_DIR = PROJECT_ROOT / "reports"
 
 
 def compute_classification_metrics(y_true, y_pred) -> dict:
@@ -41,31 +43,12 @@ def compute_detection_metrics(
     y_scores: Sequence[float] | np.ndarray,
     iou_threshold: float = 0.5,
 ) -> dict[str, float]:
-    """Compute detection metrics (mAP) from anomaly scores.
-
-    Parameters
-    ----------
-    y_true:
-        Ground-truth binary labels or flattened binary masks.
-    y_scores:
-        Continuous anomaly scores aligned with ``y_true``.
-    iou_threshold:
-        IoU threshold used for matching, when boxes/masks are available.
-
-    Returns
-    -------
-    dict[str, float]
-        At least ``mAP`` and ``auroc``.
-    """
+    """Compute detection metrics (mAP) from anomaly scores."""
     from sklearn.metrics import average_precision_score, roc_auc_score
 
     true_values = np.asarray(y_true).ravel()
     score_values = np.asarray(y_scores).ravel()
 
-    # mAP is computed as average precision over image-level anomaly scores.
-    # No bounding boxes are matched here: this is classification-style mAP,
-    # consistent with image-level MVTec AD evaluation. The IoU threshold is
-    # only reported for traceability, not used in the computation.
     mean_ap = average_precision_score(true_values, score_values)
     auroc = roc_auc_score(true_values, score_values)
 
@@ -80,20 +63,7 @@ def compare_with_baseline(
     metrics: dict[str, float],
     baseline: dict[str, Any],
 ) -> dict[str, Any]:
-    """Compare current metrics with the stored baseline.
-
-    Parameters
-    ----------
-    metrics:
-        New metrics, e.g. ``{"accuracy": 0.91, "f1": 0.88}``.
-    baseline:
-        Contents of ``model_registry/baseline_metrics.json``.
-
-    Returns
-    -------
-    dict[str, Any]
-        ``{"passed": bool, "regressions": [...], "improvements": [...]}``.
-    """
+    """Compare current metrics with the stored baseline."""
     tolerance = 1e-3
     regressions: list[dict[str, Any]] = []
     improvements: list[dict[str, Any]] = []
@@ -106,8 +76,6 @@ def compare_with_baseline(
         if old_value is None:
             continue
 
-        # Ignore non-numeric values such as confusion matrices (lists) and
-        # booleans, which are not meaningful for a delta comparison.
         if isinstance(new_value, bool) or isinstance(old_value, bool):
             continue
         if not isinstance(new_value, numbers.Real):
@@ -133,6 +101,32 @@ def compare_with_baseline(
         "regressions": regressions,
         "improvements": improvements,
     }
+
+
+def check_alerts(metrics: dict, config: Config) -> list[str]:
+    """Compare metrics with alert thresholds and return a list of alerts."""
+    alerting_path = PROJECT_ROOT / "configs" / "alerting.yaml"
+    if not alerting_path.is_file():
+        return []
+
+    with alerting_path.open("r", encoding="utf-8") as handle:
+        thresholds = yaml.safe_load(handle)
+
+    alerts = []
+    if metrics["accuracy"] < thresholds.get("accuracy_threshold", 0):
+        alerts.append(
+            f"Accuracy ({metrics['accuracy']:.2f}) < seuil ({thresholds['accuracy_threshold']})"
+        )
+    if metrics["f1"] < thresholds.get("f1_threshold", 0):
+        alerts.append(
+            f"F1 ({metrics['f1']:.2f}) < seuil ({thresholds['f1_threshold']})"
+        )
+    if metrics["mAP"] < thresholds.get("mAP_threshold", 0):
+        alerts.append(
+            f"mAP ({metrics['mAP']:.2f}) < seuil ({thresholds['mAP_threshold']})"
+        )
+
+    return alerts
 
 
 def main() -> None:
@@ -224,6 +218,24 @@ def main() -> None:
         with baseline_path.open("w", encoding="utf-8") as handle:
             json.dump(metrics, handle, indent=2, default=float)
         logger.info("Baseline updated: %s", baseline_path)
+
+    # --- Vérification des alertes de performance ---
+    alerts = check_alerts(metrics, config)
+    if alerts:
+        logger.warning("ALERTE : Chute de performance détectée !")
+        for alert in alerts:
+            logger.warning(alert)
+
+        # Écriture du fichier d'alerte pour le monitoring
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        alert_file = REPORTS_DIR / "alerts.json"
+        alert_file.write_text(
+            json.dumps({"alerts": alerts, "metrics": metrics}, indent=2),
+            encoding="utf-8",
+        )
+        logger.info("Alertes sauvegardées dans %s", alert_file)
+    else:
+        logger.info("Aucune alerte : toutes les métriques sont au-dessus des seuils.")
 
     logger.info("Evaluation metrics: %s", metrics)
     logger.info("Comparison with baseline: %s", comparison)

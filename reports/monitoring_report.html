@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rapport de Monitoring - Industrial Defect Detection</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 2.5rem 1rem;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      line-height: 1.5;
+    }
+    .report {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 2.5rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.6rem;
+      line-height: 1.25;
+    }
+    .subtitle {
+      margin: 0;
+      color: #64748b;
+    }
+    .banner {
+      margin: 1.75rem 0 1.5rem;
+      padding: 1rem 1.25rem;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .banner.ok {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .banner.fail {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    caption {
+      margin-bottom: 0.75rem;
+      color: #334155;
+      font-weight: 600;
+      text-align: left;
+    }
+    th {
+      padding: 0.75rem 1rem;
+      border-bottom: 2px solid #cbd5e1;
+      color: #475569;
+      font-size: 0.85rem;
+      letter-spacing: 0.04em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    td {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .numeric {
+      font-variant-numeric: tabular-nums;
+    }
+    tr.row-ok {
+      background: #f0fdf4;
+    }
+    tr.row-fail {
+      background: #fef2f2;
+    }
+    .status {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .status.ok {
+      color: #15803d;
+    }
+    .status.fail {
+      color: #b91c1c;
+    }
+    .note {
+      margin-top: 1.5rem;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+    .footer {
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      color: #94a3b8;
+      font-size: 0.8rem;
+    }
+</style>
+</head>
+<body>
+  <main class="report">
+    <header>
+      <h1>Rapport de Monitoring - Industrial Defect Detection</h1>
+      <p class="subtitle">Généré le 01/11/2026 à 01:07</p>
+    </header>
+    <div class="banner fail"><span aria-hidden="true">❌</span> 1 métrique sous le seuil : une action est requise.</div>
+    <table>
+      <caption>Comparaison des performances aux seuils de qualité</caption>
+      <thead>
+        <tr>
+          <th scope="col">Métrique</th>
+          <th scope="col">Valeur actuelle</th>
+          <th scope="col">Seuil</th>
+          <th scope="col">Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-fail">
+          <td>Accuracy</td>
+          <td class="numeric">85.54 %</td>
+          <td class="numeric">99.00 %</td>
+          <td class="status fail"><span aria-hidden="true">❌</span> Sous le seuil</td>
+        </tr>
+        <tr class="row-ok">
+          <td>F1</td>
+          <td class="numeric">89.47 %</td>
+          <td class="numeric">80.00 %</td>
+          <td class="status ok"><span aria-hidden="true">✅</span> Conforme</td>
+        </tr>
+        <tr class="row-ok">
+          <td>mAP</td>
+          <td class="numeric">99.80 %</td>
+          <td class="numeric">70.00 %</td>
+          <td class="status ok"><span aria-hidden="true">✅</span> Conforme</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">Un seuil correspond au niveau minimal acceptable défini par l'équipe qualité. Une métrique conforme (✅) est au-dessus ou égale au seuil ; une métrique sous le seuil (❌) nécessite une vérification.</p>
+    <p class="footer">Sources : model_registry/test_metrics.json et configs/alerting.yaml</p>
+  </main>
+</body>
+</html>
