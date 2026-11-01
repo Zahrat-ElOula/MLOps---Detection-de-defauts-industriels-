@@ -39,6 +39,21 @@ jobs:
 
       - name: Run test suite
         run: pytest tests -v --maxfail=1
+      
+      - name: Check for performance alerts (CI Gate)
+        run: |
+          if [ -f reports/alerts.json ]; then
+            echo "⚠️ ALERTE : Chute de performance détectée !"
+            cat reports/alerts.json
+            echo "❌ Le déploiement est bloqué car les métriques sont sous les seuils."
+            exit 1
+          else
+            echo "✅ Aucune alerte de performance. Le modèle est stable."
+          fi
+          
+      - name: Run data drift monitoring (Evidently)
+        run: |
+          python scripts/monitoring_drift.py
 
       - name: Compile check
         run: python -m compileall -q src pipelines tests
