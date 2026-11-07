@@ -1,63 +1,78 @@
-
 <div align="center">
 
 # 🏭 Industrial Defect Detection
 
-**Détection de défauts sur le dataset MVTec AD, combinant un module Deep Learning (PyTorch/YOLO) et une stack MLOps complète.**
+**End-to-end defect detection on the MVTec AD dataset, combining a Deep Learning module (PyTorch / YOLO) with a complete MLOps stack.**
 
-![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-EE4C2C?logo=pytorch&logoColor=white)
-![YOLOv8](https://img.shields.io/badge/YOLOv8-Object%20Detection-00FFFF?logo=ultralytics&logoColor=black)
-![FastAPI](https://img.shields.io/badge/FastAPI-inference%20API-009688?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-Vite-61DAFB?logo=react&logoColor=black)
-![DVC](https://img.shields.io/badge/DVC-data%20versioning-945DD6?logo=dvc&logoColor=white)
-![MLflow](https://img.shields.io/badge/MLflow-tracking-0194E2?logo=mlflow&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-containers-2496ED?logo=docker&logoColor=white)
-![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?logo=github-actions&logoColor=white)
+<br>
 
-[Architecture](#-architecture) · [Fonctionnalités](#-features) · [Installation](#-installation) · [Usage](#-usage)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-Object%20Detection-00B8D4?style=flat-square&logo=ultralytics&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Inference%20API-009688?style=flat-square&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-Vite-61DAFB?style=flat-square&logo=react&logoColor=black)
+![DVC](https://img.shields.io/badge/DVC-Data%20Versioning-945DD6?style=flat-square&logo=dvc&logoColor=white)
+![MLflow](https://img.shields.io/badge/MLflow-Tracking-0194E2?style=flat-square&logo=mlflow&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Containers-2496ED?style=flat-square&logo=docker&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?style=flat-square&logo=github-actions&logoColor=white)
+
+<br>
+
+[📋 Overview](#-overview) •
+[🏗 Architecture](#-architecture) •
+[✨ Features](#-features) •
+[📦 Getting Started](#-getting-started) •
+[🚀 Usage](#-usage) •
+[🧠 Deep Learning](#-deep-learning-pipeline) •
+[⚙️ MLOps](#️-mlops-pipeline)
 
 </div>
 
 ---
 
 > [!NOTE]
-> **Statut : Projet terminé.** Le système est fonctionnel de bout en bout, avec une architecture à deux étages (classification + détection), une API conteneurisée, une interface web moderne et une chaîne MLOps complète.
+> **Status: Completed.** The system is fully functional end to end, featuring a two-stage architecture (classification + detection), a containerized API, a modern web interface, and a complete MLOps pipeline.
 
 ## 📋 Overview
 
-Le projet couvre deux volets complémentaires :
+The project covers two complementary areas:
 
-| Volet | Périmètre |
-|-------|-----------|
-| 🧠 **Deep Learning** | Classification (ResNet18) et détection (YOLOv8) sur les images industrielles (MVTec AD). Gestion du Fine-Tuning progressif et des bounding boxes. |
-| ⚙️ **MLOps** | Data versioning (DVC), tracking (MLflow), API FastAPI, conteneurisation (Docker), CI/CD (GitHub Actions), et boucle de Feedback (Active Learning). |
+| Area | Scope |
+|:-----|:------|
+| 🧠 **Deep Learning** | Classification (ResNet18) and detection (YOLOv8) on industrial images from MVTec AD, with progressive fine-tuning and bounding-box localization. |
+| ⚙️ **MLOps** | Data versioning (DVC), experiment tracking (MLflow), inference API (FastAPI), containerization (Docker), CI/CD (GitHub Actions), and a feedback loop for active learning. |
 
 ## 🏗 Architecture
 
 ![Architecture](Architecture.svg)
 
-1. **Data & Training** : Le dataset est versionné par DVC. Les pipelines d'entraînement génèrent des modèles sérialisés en ONNX. MLflow trace chaque expérience.
-2. **Serving** : L'API FastAPI charge les modèles ONNX et expose `/predict` (classifieur + YOLO) et `/feedback`. Le Frontend React permet l'upload, la webcam et l'affichage des bounding boxes.
-3. **MLOps** : Les erreurs signalées par les utilisateurs sont stockées dans `data/feedback/` pour déclencher le Continuous Training (CT) via GitHub Actions. Docker orchestre le tout.
+| Stage | Description |
+|:------|:------------|
+| 📊 **1. Data & Training** | The dataset is versioned with DVC. Training pipelines produce models serialized to ONNX, and MLflow tracks every experiment. |
+| 🌐 **2. Serving** | The FastAPI service loads the ONNX models and exposes `/predict` (classifier + YOLO) and `/feedback`. The React frontend supports image upload, webcam capture, and bounding-box visualization. |
+| 🔄 **3. MLOps** | User-reported errors are stored in `data/feedback/` and trigger Continuous Training (CT) through GitHub Actions. Docker orchestrates the whole stack. |
 
-## 🚀 Features
+## ✨ Features
 
-- **Double modèle** : ResNet18 (bonne/mauvaise pièce) + YOLOv8 (localisation du défaut).
-- **Interface React** : Design moderne (Tailwind), i18n (FR/EN), caméra temps réel, overlay des bounding boxes.
-- **Boucle MLOps** : Bouton "Signaler une erreur" qui sauvegarde l'image et le label corrigé dans `data/feedback/`.
-- **Versioning** : Git (code), DVC (données), MLflow (expériences).
-- **17 Tests** : Validation de l'API, des données et des métriques de non-régression.
-- **CI GitHub Actions** : Workflow qui installe `libgl1` et skippe les tests YOLO si le modèle n'est pas présent.
+- 🤖 **Dual-model inference**: ResNet18 (good / defective part) followed by YOLOv8 (defect localization).
+- 🎨 **Modern React interface**: Tailwind-based design, i18n (FR/EN), real-time camera input, and bounding-box overlay.
+- 🔁 **Feedback loop**: a "Report an error" button saves the image and its corrected label to `data/feedback/`.
+- 🗂 **Full versioning**: Git (code), DVC (data), MLflow (experiments).
+- ✅ **17 automated tests**: API validation, data checks, and non-regression metrics.
+- 🛠 **GitHub Actions CI**: installs `libgl1` and skips YOLO tests when the model is not available.
 
-## 📦 Installation
+## 📦 Getting Started
 
-### Prérequis
-- Python 3.11
-- Node.js 22+
-- Docker Desktop
+### Prerequisites
+
+| Requirement | Version |
+|:------------|:--------|
+| 🐍 Python | 3.11 |
+| 🟢 Node.js | 22+ |
+| 🐳 Docker Desktop | Latest |
 
 ### 1. Backend & API
+
 ```bash
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1  # Windows
@@ -65,12 +80,14 @@ pip install -r requirements.txt
 ```
 
 ### 2. Data
+
 ```bash
-# Télécharger MVTec AD et le placer dans data/raw/
-dvc pull  # Récupérer les données versionnées
+# Download MVTec AD and place it in data/raw/
+dvc pull  # Fetch the versioned data
 ```
 
 ### 3. Frontend
+
 ```bash
 cd frontend
 npm install
@@ -79,43 +96,51 @@ cd ..
 
 ## 🚀 Usage
 
-### Docker (Recommandé)
+### 🐳 Docker (recommended)
+
 ```bash
 docker compose -f docker/docker-compose.yml up -d --build
 ```
-- **Frontend** : http://localhost:5173
-- **API Swagger** : http://localhost:8000/docs
 
-### Entraînement & Évaluation
+| Service | URL |
+|:--------|:----|
+| 🖥 Frontend | http://localhost:5173 |
+| 📖 API (Swagger) | http://localhost:8000/docs |
+
+### 🏋️ Training & Evaluation
+
 ```bash
 python pipelines/train_pipeline.py --params configs/params.yaml
 python scripts/train_yolo.py
 python -m src.models.evaluate
 ```
 
-### Tests
+### 🧪 Tests
+
 ```bash
 pytest tests -v  # 17 tests
 ```
 
-## 🧠 Deep Learning Phase
+## 🧠 Deep Learning Pipeline
 
-| Étape | Fichier | Description |
-|:-:|------|----------|
-| 1 | `src/models/train.py` | Fine-Tuning progressif (ResNet18) avec MLflow et Early Stopping. |
-| 2 | `scripts/train_yolo.py` | Entraînement YOLOv8 sur les bounding boxes (15 catégories). |
-| 3 | `src/models/evaluate.py` | Calcul du F1-score, mAP et comparaison avec `baseline_metrics.json`. |
-| 4 | `src/utils/export.py` | Export ONNX avec vérification de fidélité (Max diff < 1e-4). |
+| Step | File | Description |
+|:----:|:-----|:------------|
+| 1 | `src/models/train.py` | Progressive fine-tuning of ResNet18 with MLflow tracking and early stopping. |
+| 2 | `scripts/train_yolo.py` | YOLOv8 training on bounding boxes (15 categories). |
+| 3 | `src/models/evaluate.py` | Computes F1-score and mAP, and compares them against `baseline_metrics.json`. |
+| 4 | `src/utils/export.py` | ONNX export with fidelity check (max diff < 1e-4). |
 
-## ⚙️ MLOps Phase
+## ⚙️ MLOps Pipeline
 
-### Automatisation (CI/CT)
-| Workflow | Déclencheur | Action |
-|----------|------------|--------|
-| **CI** | Push / PR | Installe `libgl1`, exécute `pytest` (skip YOLO si absent). |
-| **CT** | Nouveaux fichiers dans `data/feedback/` | Réentraînement automatique + tests de non-régression. |
+### 🔄 Automation (CI / CT)
 
-### ☸️ Kubernetes (Optionnel)
+| Workflow | Trigger | Action |
+|:---------|:--------|:-------|
+| **CI** | Push / Pull Request | Installs `libgl1` and runs `pytest` (skips YOLO tests if the model is absent). |
+| **CT** | New files in `data/feedback/` | Automatic retraining followed by non-regression tests. |
+
+### ☸️ Kubernetes
+
 ```bash
 minikube start
 kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
