@@ -1,2 +1,64 @@
 schema: '2.0'
-stages: {}
+stages:
+  train:
+    cmd: python pipelines/train_pipeline.py --params configs/params.yaml
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 85a8105bca6eccc60510a84de813ddc2.dir
+      size: 5271247124
+      nfiles: 6644
+    - path: pipelines/train_pipeline.py
+      hash: md5
+      md5: 57238b72225820a7cba0947c8d0c30da
+      size: 3508
+    - path: src/
+      hash: md5
+      md5: fc7c8963cea89d68ab9d7b6039dcb729.dir
+      size: 119207
+      nfiles: 35
+    params:
+      configs/params.yaml:
+        batch_size: 32
+        early_stopping_patience: 5
+        epochs: 20
+        image_size: 224
+        lr: 0.001
+        model_name: resnet18
+        num_classes: 2
+    outs:
+    - path: model_registry/model.pt
+      hash: md5
+      md5: 52a19966cb7ed4ccac134946b78ff9f6
+      size: 44780939
+    - path: model_registry/train_metrics.json
+      hash: md5
+      md5: 82d0baefe0c26fd1a3ea4a0cd9307a05
+      size: 284
+  evaluate:
+    cmd: python -m src.models.evaluate
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 85a8105bca6eccc60510a84de813ddc2.dir
+      size: 5271247124
+      nfiles: 6644
+    - path: model_registry/model.pt
+      hash: md5
+      md5: 52a19966cb7ed4ccac134946b78ff9f6
+      size: 44780939
+    - path: src/
+      hash: md5
+      md5: fc7c8963cea89d68ab9d7b6039dcb729.dir
+      size: 119207
+      nfiles: 35
+    outs:
+    - path: model_registry/baseline_metrics.json
+      hash: md5
+      md5: 6eb4e54c6d49b80f195160462c2f974b
+      size: 309
+    - path: reports/figures
+      hash: md5
+      md5: 5137b623d641e58c62bc4c529c2b21a2.dir
+      size: 46
+      nfiles: 1
