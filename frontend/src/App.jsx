@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import UploadImage from "./components/UploadImage";
 import CameraCapture from "./components/CameraCapture";
@@ -19,9 +19,7 @@ function App() {
   const [feedbackThanks, setFeedbackThanks] = useState(false);
 
   const clearPreview = () => {
-    if (imageUrl) {
-      URL.revokeObjectURL(imageUrl);
-    }
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
   };
 
   const resetFeedback = () => {
@@ -91,34 +89,39 @@ function App() {
     i18n.changeLanguage(i18n.language === "fr" ? "en" : "fr");
   };
 
+  useEffect(() => {
+    document.title = t("title");
+  }, [t]);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <header className="flex items-center justify-between mb-10">
+    <div className="min-h-screen bg-slate-50/50 text-slate-800">
+      <div className="max-w-7xl mx-auto bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-slate-100 p-8">
+        <header className="flex items-center justify-between border-b border-slate-100 pb-6 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">{t("title")}</h1>
-            <p className="text-slate-500 mt-1">{t("subtitle")}</p>
+            <h1 className="text-3xl font-bold text-slate-800">{t("title")}</h1>
+            <p className="text-slate-500 text-lg mt-1">{t("subtitle")}</p>
           </div>
           <button
             onClick={toggleLang}
-            className="bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm"
+            className="bg-white border border-slate-300 rounded-xl px-4 py-2 text-sm hover:bg-slate-100 transition"
           >
             {i18n.language === "fr" ? "EN" : "FR"}
           </button>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* Colonne gauche : Upload + boutons */}
           <div className="flex flex-col gap-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-1 flex">
+            <div className="bg-slate-100 p-1 rounded-xl flex">
               <button
                 onClick={() => setActiveTab("upload")}
-                className={`flex-1 rounded-xl py-2 ${activeTab === "upload" ? "bg-blue-600 text-white" : "text-slate-600"}`}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${activeTab === "upload" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >
                 {t("upload_mode")}
               </button>
               <button
                 onClick={() => setActiveTab("camera")}
-                className={`flex-1 rounded-xl py-2 ${activeTab === "camera" ? "bg-blue-600 text-white" : "text-slate-600"}`}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${activeTab === "camera" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >
                 {t("camera_mode")}
               </button>
@@ -128,41 +131,42 @@ function App() {
             {activeTab === "camera" && <CameraCapture onCapture={onCapture} />}
 
             {imageUrl && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-                <img src={imageUrl} alt="preview" className="w-full max-h-[320px] object-contain rounded-xl" />
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex justify-center">
+                <img src={imageUrl} alt="preview" className="max-h-[320px] object-contain rounded-xl" />
               </div>
             )}
 
+            {/* Feedback buttons (petits, discrets) */}
             {result && !feedbackSent && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col gap-3">
+              <div className="flex flex-col gap-2 items-start">
                 {showFeedbackOptions ? (
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     <button
                       onClick={() => onFeedback("good")}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2"
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition"
                     >
-                      C'est Good
+                      {t("feedback_good")}
                     </button>
                     <button
                       onClick={() => onFeedback("defect")}
-                      className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-4 py-2"
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-white border-rose-200 text-rose-700 hover:bg-rose-50 transition"
                     >
-                      C'est Defect
+                      {t("feedback_defect")}
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     <button
                       onClick={() => setFeedbackSent(true)}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl px-4 py-2"
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition"
                     >
-                      Confirmer
+                      {t("feedback_confirm")}
                     </button>
                     <button
                       onClick={() => setShowFeedbackOptions(true)}
-                      className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-4 py-2"
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-white border-rose-200 text-rose-700 hover:bg-rose-50 transition"
                     >
-                      Signaler une erreur
+                      {t("feedback_report")}
                     </button>
                   </div>
                 )}
@@ -170,26 +174,30 @@ function App() {
             )}
 
             {feedbackSent && feedbackThanks && (
-              <p className="text-emerald-600 font-medium">Merci, feedback enregistré</p>
+              <p className="text-emerald-600 font-medium">{t("feedback_thanks")}</p>
             )}
 
-            <div className="flex gap-3">
+            {/* Boutons principaux */}
+            <div className="flex gap-3 mt-2">
               <button
                 onClick={onAnalyze}
                 disabled={!file || loading}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl px-6 py-3"
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold px-8 py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all"
               >
-                {t("analyze_btn")}
+                {loading ? t("analyzing") : t("analyze_btn")}
               </button>
-              <button onClick={onReset} className="bg-white border border-slate-300 rounded-xl px-6 py-3">
+              <button
+                onClick={onReset}
+                className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-6 py-3 rounded-xl shadow-sm"
+              >
                 {t("reset_btn")}
               </button>
             </div>
 
-            {loading && <p className="text-slate-600">{t("loading")}</p>}
             {error && <p className="text-rose-600">{error}</p>}
           </div>
 
+          {/* Colonne droite : Résultat */}
           <div>
             {result ? (
               <div className="flex flex-col gap-4">
@@ -197,8 +205,9 @@ function App() {
                 <ConfidenceScore probabilities={result.probabilities} />
               </div>
             ) : (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center text-slate-500">
-                {t("no_analysis")}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
+                <p className="text-lg font-medium">{t("no_analysis")}</p>
+                <p className="text-sm mt-2">{t("empty_hint")}</p>
               </div>
             )}
           </div>
