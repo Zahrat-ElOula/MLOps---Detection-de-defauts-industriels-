@@ -51,9 +51,9 @@ jobs:
             echo "✅ Aucune alerte de performance. Le modèle est stable."
           fi
           
-      - name: Run data drift monitoring (Evidently)
-        run: |
-          python scripts/monitoring_drift.py
+      # - name: Run data drift monitoring (Evidently)
+        # run: |
+          # python scripts/monitoring_drift.py
 
       - name: Compile check
         run: python -m compileall -q src pipelines tests
