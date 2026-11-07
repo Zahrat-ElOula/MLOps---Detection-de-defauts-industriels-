@@ -1,0 +1,20 @@
+name: Data Drift Monitoring
+
+on:
+  workflow_dispatch:  # Déclenchement manuel uniquement
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python scripts/monitoring_drift.py
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drift-report
+          path: reports/drift_report.html
