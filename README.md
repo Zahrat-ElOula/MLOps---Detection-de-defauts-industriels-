@@ -1,3 +1,4 @@
+```markdown
 <div align="center">
 
 # 🏭 Industrial Defect Detection
@@ -31,7 +32,7 @@
 ---
 
 > [!NOTE]
-> **Status: Completed.** The system is fully functional end to end, featuring a two-stage architecture (classification + detection), a containerized API, a modern web interface, and a complete MLOps pipeline.
+> **Status: Completed.** The system is fully functional end to end, featuring a two-stage architecture (classification + detection), a containerized API, a modern web interface, and a complete MLOps pipeline. CI is green (17 tests passed).
 
 ## 📋 Overview
 
@@ -137,7 +138,8 @@ pytest tests -v  # 17 tests
 | Workflow | Trigger | Action |
 |:---------|:--------|:-------|
 | **CI** | Push / Pull Request | Installs `libgl1` and runs `pytest` (skips YOLO tests if the model is absent). |
-| **CT** | New files in `data/feedback/` | Automatic retraining followed by non-regression tests. |
+| **CT** | Manual (`workflow_dispatch`) | Retraining followed by non-regression tests on new feedback data. |
+| **Monitoring** | Manual (`workflow_dispatch`) | Runs Evidently data drift report and uploads it as an artifact. |
 
 ### ☸️ Kubernetes
 
@@ -154,3 +156,5 @@ minikube service industrial-defect-api
 Built with **PyTorch**, **YOLOv8**, **FastAPI**, **DVC**, **MLflow** and **Docker** 🚀
 
 </div>
+```
+
