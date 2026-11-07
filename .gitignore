@@ -56,3 +56,7 @@ yolov8n.pt
 
 # Feedback Loop (Continuous Training)
 data/feedback/
+
+reports/drift_report.html
+reports/drift_summary.json
+data/feedback/
