@@ -18,3 +18,4 @@ jobs:
         with:
           name: drift-report
           path: reports/drift_report.html
+          if-no-files-found: ignore
