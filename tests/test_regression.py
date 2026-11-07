@@ -1,7 +1,7 @@
 """Non-regression gate used by the continuous-training workflow.
 
-The comparison itself is intentionally a skeleton: it becomes active once
-``src.models.evaluate`` is implemented and the baseline is populated.
+The comparison enforces that current metrics do not fall below the stored
+baseline and that every configured alerting threshold is met.
 """
 
 from __future__ import annotations

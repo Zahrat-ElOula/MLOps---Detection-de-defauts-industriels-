@@ -45,10 +45,17 @@ def test_predict_rejects_non_image_upload() -> None:
 def test_predict_without_loaded_model_returns_503(monkeypatch) -> None:
     """POST /predict is unavailable until an artefact is registered."""
     from src.api import main as api_main
+    from src.api.inference import ModelLoader
 
-    monkeypatch.setattr(api_main.model_loader, "model_path", None)
-    monkeypatch.setattr(api_main.model_loader, "_session", None)
-    monkeypatch.setattr(api_main.model_loader, "_model", None)
+    # Le lifespan de FastAPI n'est pas exécuté par le TestClient module-level :
+    # on garantit la présence du loader puis on le vide entièrement.
+    loader = getattr(api_main.app.state, "model_loader", None) or ModelLoader()
+    api_main.app.state.model_loader = loader
+
+    monkeypatch.setattr(loader, "session", None)
+    monkeypatch.setattr(loader, "model_path", None)
+    monkeypatch.setattr(loader, "_session", None)
+    monkeypatch.setattr(loader, "_model", None)
 
     response = client.post(
         "/predict",

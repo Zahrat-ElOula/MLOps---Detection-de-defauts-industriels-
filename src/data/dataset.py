@@ -12,9 +12,9 @@ Expected layout (subset of the official dataset)::
         └── ground_truth/
             └── broken_large/*_mask.png
 
-The class is deliberately a skeleton: indexing is implemented so the rest of
-the project can reason about dataset sizes, while pixel decoding and tensor
-conversion are left to the student/engineer (see ``__getitem__``).
+The adapter indexes image files and derives binary good/defect labels;
+``__getitem__`` loads each image, applies the configured transform and
+returns a ``(image, label)`` pair.
 """
 
 from __future__ import annotations

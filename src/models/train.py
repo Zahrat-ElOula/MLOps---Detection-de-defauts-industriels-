@@ -1,7 +1,8 @@
 """Training entry point with MLflow tracking.
 
-This module is a skeleton: the contract (signature, configuration keys,
-artefacts) is fixed, the training loop is intentionally left to implement.
+This module implements the full training loop (progressive fine-tuning,
+early stopping, checkpointing) and logs parameters, metrics and artefacts
+to MLflow.
 """
 
 from __future__ import annotations
@@ -114,11 +115,14 @@ def train(config, output_dir: Path | None = None,
 
         for epoch in range(config.epochs):
             if epoch == unfreeze_epoch:
+                # Dégeler tous les paramètres
                 for param in model.parameters():
                     param.requires_grad = True
-                for g in optimizer.param_groups:
-                    g["lr"] = config.lr / 10
-                logger.info(f"Epoch {epoch+1} : dégel de toutes les couches, LR divisé par 10.")
+                # RECRÉER l'optimiseur pour inclure les paramètres dégelés
+                optimizer = torch.optim.Adam(model.parameters(), lr=config.lr / 10)
+                # Recréer le scheduler pour le nouvel optimiseur
+                scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", patience=2)
+                logger.info(f"Epoch {epoch+1} : dégel complet, nouvel optimiseur avec LR={config.lr/10}.")
             # --- train ---
             model.train()
             train_loss = 0.0
