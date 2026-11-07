@@ -1,0 +1,12 @@
+{
+  "drift_share": 0.0,
+  "features": [
+    "mean_r",
+    "mean_g",
+    "mean_b",
+    "std_r",
+    "std_g",
+    "std_b",
+    "brightness"
+  ]
+}
