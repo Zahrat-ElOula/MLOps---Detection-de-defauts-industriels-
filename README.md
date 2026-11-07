@@ -156,5 +156,5 @@ minikube service industrial-defect-api
 Built with **PyTorch**, **YOLOv8**, **FastAPI**, **DVC**, **MLflow** and **Docker** 🚀
 
 </div>
-```
+
 
