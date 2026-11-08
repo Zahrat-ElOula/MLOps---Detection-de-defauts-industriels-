@@ -45,7 +45,7 @@ The project covers two complementary areas:
 
 ## 🏗 Architecture
 
-![Architecture](Architecture.svg)
+![Architecture](Architecture_animated.svg)
 
 | Stage | Description |
 |:------|:------------|
