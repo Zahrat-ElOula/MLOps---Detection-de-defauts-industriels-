@@ -1,5 +1,5 @@
 {
-  "best_val_loss": 0.7331413626670837,
+  "best_val_loss": 0.5740694999694824,
   "final_metrics": {
     "accuracy": 0.5,
     "precision": 0.0,
