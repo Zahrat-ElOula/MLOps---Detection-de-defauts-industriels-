@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - 'data/feedback/**'
+  schedule:
+    - cron: "0 3 * * 1"  # Every Monday at 03:00 UTC
   workflow_dispatch:
 
 concurrency:
@@ -24,7 +26,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Count feedback images
+        id: check
+        run: |
+          count=$(find data/feedback -maxdepth 1 -type f \
+            \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \
+               -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) \
+            2>/dev/null | wc -l)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$count" -lt 1 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Scheduled run skipped: no feedback images."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Feedback images: $count"
+          fi
+
       - name: Set up Python 3.11
+        if: steps.check.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -32,34 +51,63 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Install dependencies
+        if: steps.check.outputs.run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Prepare mini dataset for retraining
+        if: steps.check.outputs.run == 'true'
         run: |
-          # Créer la structure attendue par MVTecDataset
+          # Minimal MVTec layout expected by MVTecDataset.
           mkdir -p data/raw/bottle/train/good
           mkdir -p data/raw/bottle/test/good
-          mkdir -p data/raw/bottle/test/broken_large
-          # Copier les images de référence (good)
           cp data/mini_ref/good/*.png data/raw/bottle/train/good/ 2>/dev/null || true
           cp data/mini_ref/good/*.png data/raw/bottle/test/good/ 2>/dev/null || true
-          # Copier les feedbacks comme images "defect" (pour simuler)
-          cp data/feedback/*.png data/raw/bottle/test/broken_large/ 2>/dev/null || true
-          # Copier aussi dans train (pour que le classifieur voie des défauts)
-          cp data/feedback/*.png data/raw/bottle/train/ 2>/dev/null || true
-          ls -la data/raw/bottle/train/good/ | head -5
+
+          # One reference folder per defect type.
+          for cls in broken_large broken_small contamination; do
+            mkdir -p "data/raw/bottle/test/$cls"
+            cp "data/mini_ref/$cls/"*.png "data/raw/bottle/test/$cls/" 2>/dev/null || true
+          done
+
+          # Feedback images are routed using their .txt label.
+          # Legacy "defect" labels are accepted by the API but ignored here.
+          for f in data/feedback/*.png data/feedback/*.jpg data/feedback/*.jpeg data/feedback/*.bmp; do
+            [ -e "$f" ] || continue
+            base="${f%.*}"
+            label="$(cat "${base}.txt" 2>/dev/null || true)"
+            case "$label" in
+              good|broken_large|broken_small|contamination)
+                mkdir -p "data/raw/bottle/test/$label"
+                cp "$f" "data/raw/bottle/test/$label/"
+                ;;
+              defect|"")
+                echo "Skipping legacy/empty feedback: $f"
+                ;;
+              *)
+                echo "Skipping unknown label '$label': $f"
+                ;;
+            esac
+          done
+
+          find data/raw/bottle -maxdepth 3 -type f | sort | head -20
 
       - name: Retrain model
+        if: steps.check.outputs.run == 'true'
         run: python pipelines/train_pipeline.py --params configs/params.yaml --override epochs=2
 
+      - name: Evaluate retrained model
+        if: steps.check.outputs.run == 'true'
+        run: python -m src.models.evaluate
+
       - name: Non-regression tests
+        if: steps.check.outputs.run == 'true'
         run: pytest tests/test_regression.py -v --maxfail=1
 
       - name: Upload run artefacts
+        if: always() && steps.check.outputs.run == 'true'
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: retrain-artifacts
           path: |
@@ -68,10 +116,13 @@ jobs:
           retention-days: 14
 
       - name: Commit updated metrics
-        if: success()
+        if: success() && steps.check.outputs.run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add model_registry/baseline_metrics.json model_registry/train_metrics.json 2>/dev/null || true
+          git add model_registry/baseline_metrics.json \
+                  model_registry/test_metrics.json \
+                  model_registry/train_metrics.json \
+                  model_registry/classes.json
           git diff --cached --quiet || git commit -m "ct: retrain model on new data [skip ci]"
           git push

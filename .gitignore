@@ -55,7 +55,8 @@ model_registry/yolo_best.onnx
 yolov8n.pt
 
 # Feedback Loop (Continuous Training)
-data/feedback/
+# data/feedback is intentionally tracked so that a push can trigger CT.
+# Use scripts/auto_push_feedback.py or `make feedback-push` to publish batches.
 
 # Drift monitoring reports
 reports/drift_report.html

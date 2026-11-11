@@ -9,7 +9,7 @@ PIP ?= $(PYTHON) -m pip
 CONFIG ?= configs/params.yaml
 
 .PHONY: help install train test api frontend docker-build docker-up \
-        dvc-init dvc-pull clean
+        dvc-init dvc-pull feedback-push clean
 
 help:
 	@echo install      Create the virtualenv and install dependencies
@@ -21,6 +21,7 @@ help:
 	@echo docker-up    Start the local stack with docker compose
 	@echo dvc-init     Initialize DVC (idempotent)
 	@echo dvc-pull     Pull DVC-tracked data
+	@echo feedback-push Commit and push a batch of feedback images (triggers CT)
 	@echo clean        Remove caches and build artefacts
 
 # Windows: make install PYTHON_BOOTSTRAP="py -3.11"
@@ -53,6 +54,9 @@ dvc-init:
 
 dvc-pull:
 	$(PYTHON) -m dvc pull
+
+feedback-push:
+	$(PYTHON) scripts/auto_push_feedback.py
 
 clean:
 	$(PYTHON) -c "import pathlib, shutil; [shutil.rmtree(p, ignore_errors=True) for p in pathlib.Path('.').rglob('__pycache__')]; [shutil.rmtree(p, ignore_errors=True) for p in ('.pytest_cache', '.ruff_cache', 'htmlcov', 'dist', 'build', 'frontend/dist', 'frontend/node_modules')]"

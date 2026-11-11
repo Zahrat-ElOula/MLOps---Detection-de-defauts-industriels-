@@ -137,9 +137,31 @@ pytest tests -v  # 17 tests
 
 | Workflow | Trigger | Action |
 |:---------|:--------|:-------|
-| **CI** | Push / Pull Request | Installs `libgl1` and runs `pytest` (17 tests, YOLO tests skipped if model absent). |
-| **CT** | **Push on `data/feedback/**`** + manual | Prepares mini dataset, retrains, runs non-regression tests, commits updated metrics. |
+| **CI** | Push / Pull Request | Installs `libgl1` and runs `pytest` (YOLO tests skipped if model absent). |
+| **CT** | **Push on `data/feedback/**`**, **cron (Monday 03:00 UTC)** + manual | Prepares the mini dataset, retrains, evaluates, runs non-regression tests and commits updated metrics. |
 | **Monitoring** | Manual (`workflow_dispatch`) | Runs Evidently drift report and uploads it as an artifact. |
+
+#### 🔁 Continuous Training triggers
+
+The CT workflow can be started in three ways:
+
+1. **Push on feedback** — any push touching `data/feedback/**` starts a retrain.
+2. **Scheduled run** — every Monday at 03:00 UTC. If `data/feedback/` contains no image, the retrain steps are skipped.
+3. **Batch script** — publish only when enough new feedback is available:
+
+```bash
+# Dry run: show what would be committed
+python scripts/auto_push_feedback.py --dry-run
+
+# Commit and push at least 5 new images (default)
+python scripts/auto_push_feedback.py --n 5
+
+# Same through Make
+make feedback-push
+```
+
+The batch size can also be set with `FEEDBACK_BATCH_SIZE` (default `5`).
+
 
 ### ☸️ Kubernetes (required)
 
