@@ -155,11 +155,10 @@ class ModelLoader:
         probs = np.asarray(self._softmax(logits[0])).reshape(-1)
 
         names = tuple(self.class_names)
-        if len(names) < len(probs):
-            names = names + tuple(
-                f"class_{index}" for index in range(len(names), len(probs))
-            )
-        names = names[: len(probs)]
+        if len(names) != len(probs):
+            # Old binary artefacts have 2 outputs while classes.json may already
+            # describe the multi-class taxonomy (or vice versa).
+            names = load_class_names(num_outputs=len(probs))
 
         index = int(np.argmax(probs))
         predicted = names[index]
