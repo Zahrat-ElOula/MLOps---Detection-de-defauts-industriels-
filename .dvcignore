@@ -1,3 +1,8 @@
 # Add patterns of files dvc should ignore, which could improve
 # the performance. Learn more at
 # https://dvc.org/doc/user-guide/dvcignore
+
+# Serving artefacts are versioned in Git so that CI/CD runners and the
+# Docker build have them without a `dvc pull`.
+model_registry/*.onnx
+model_registry/*.onnx.data

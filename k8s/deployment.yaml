@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
         - name: api
-          image: industrial-defect-detection/api:latest
+          # CD overrides this tag with the immutable <sha> tag after `kind load`.
+          image: ghcr.io/zahrat-eloula/mlops---detection-de-defauts-industriels--api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

@@ -1,0 +1,102 @@
+name: CD - Build, deploy to kind and smoke test
+
+on:
+  workflow_run:
+    workflows: ["CI", "CT - Retrain on new data"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build image, deploy to kind and smoke test
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Compute lowercase image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}-api" >> "$GITHUB_OUTPUT"
+
+      - name: Build API image
+        run: |
+          docker build \
+            --file docker/Dockerfile.api \
+            --tag "${{ steps.image.outputs.name }}:${IMAGE_TAG}" \
+            --tag "${{ steps.image.outputs.name }}:latest" \
+            .
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: idd
+
+      - name: Load image into kind
+        run: kind load docker-image "${{ steps.image.outputs.name }}:${IMAGE_TAG}" --name idd
+
+      - name: Deploy API (2 replicas)
+        run: |
+          sed -i "s|image: .*|image: ${{ steps.image.outputs.name }}:${IMAGE_TAG}|" k8s/deployment.yaml
+          kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+          kubectl rollout status deployment/industrial-defect-api --timeout=180s
+          ready=$(kubectl get deployment industrial-defect-api -o jsonpath='{.status.readyReplicas}')
+          echo "Ready replicas: ${ready:-0}"
+          test "${ready:-0}" -ge 2
+
+      - name: Smoke test /health and /predict
+        run: |
+          set -euo pipefail
+          kubectl port-forward service/industrial-defect-api 8000:8000 > /tmp/port-forward.log 2>&1 &
+          PF_PID=$!
+          trap 'kill $PF_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health > /tmp/health.json; then
+              break
+            fi
+            sleep 1
+          done
+          cat /tmp/health.json
+          curl -fsS http://127.0.0.1:8000/health
+
+          IMAGE=$(find data/mini_ref -type f -name '*.png' | head -n 1)
+          test -n "$IMAGE"
+          curl -fsS -X POST http://127.0.0.1:8000/predict \
+            -F "file=@${IMAGE}" > /tmp/prediction.json
+          cat /tmp/prediction.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("/tmp/prediction.json").read_text())
+          assert "label" in payload, payload
+          assert "defect_type" in payload, payload
+          assert "probabilities" in payload, payload
+          print("Smoke test OK:", payload["label"], payload["defect_type"])
+          PY
+
+      - name: Push API image to GHCR (main only)
+        if: github.ref == 'refs/heads/main' || github.event.workflow_run.head_branch == 'main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "${{ steps.image.outputs.name }}:${IMAGE_TAG}"
+          docker push "${{ steps.image.outputs.name }}:latest"

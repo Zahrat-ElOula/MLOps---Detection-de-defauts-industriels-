@@ -19,8 +19,9 @@ venv/
 mlruns/
 mlartifacts/
 
-# Model artifacts (tracked by DVC or the model registry, never by Git)
-model_registry/*.onnx
+# Model artifacts
+# ONNX serving artefacts are versioned in Git (each < 100 MB per-file limit).
+# PyTorch checkpoints stay out of Git (DVC / local training output).
 model_registry/*.pt
 model_registry/*.pth
 model_registry/*.torchscript
@@ -41,7 +42,6 @@ Thumbs.db
 .vscode/
 .idea/
 mlflow.db
-model_registry/*.onnx.data
 model_registry/*.pt
 
 # Données YOLO (gérées par DVC)
@@ -51,7 +51,6 @@ data/yolo/
 # Artefacts d'entraînement YOLO
 model_registry/yolo_runs/
 model_registry/yolo_best.pt
-model_registry/yolo_best.onnx
 yolov8n.pt
 
 # Feedback Loop (Continuous Training)
