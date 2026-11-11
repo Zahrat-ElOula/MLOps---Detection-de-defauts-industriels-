@@ -1,0 +1,6 @@
+{
+  "accuracy": 0.25,
+  "f1": 0.0,
+  "mAP": 0.0,
+  "note": "Dedicated CT plumbing baseline. Never replaces model_registry/baseline_metrics.json."
+}

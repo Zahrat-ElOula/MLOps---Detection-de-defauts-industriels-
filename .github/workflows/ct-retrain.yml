@@ -60,7 +60,11 @@ jobs:
         if: steps.check.outputs.run == 'true'
         run: |
           # Minimal MVTec layout expected by MVTecDataset.
-          rm -rf data/raw/bottle model_registry/ct
+          rm -rf data/raw/bottle
+          mkdir -p model_registry/ct
+          # Keep the dedicated CT baseline; remove only generated CT artefacts.
+          find model_registry/ct -mindepth 1 -maxdepth 1 \
+            ! -name 'baseline_metrics.json' -exec rm -rf {} +
           mkdir -p data/raw/bottle/train/good
           mkdir -p data/raw/bottle/test/good
 
@@ -105,6 +109,14 @@ jobs:
 
           find data/raw/bottle -maxdepth 3 -type f | sort | head -20
 
+      - name: Ensure dedicated CT baseline
+        if: steps.check.outputs.run == 'true'
+        run: |
+          if [ ! -f model_registry/ct/baseline_metrics.json ]; then
+            cp data/mini_ref/baseline_metrics.json \
+              model_registry/ct/baseline_metrics.json
+          fi
+
       - name: Retrain model with a dedicated CT split
         if: steps.check.outputs.run == 'true'
         run: |
@@ -121,7 +133,7 @@ jobs:
             --model-dir model_registry/ct \
             --split-path model_registry/ct/split.json \
             --metrics-path model_registry/ct/test_metrics.json \
-            --baseline-path data/mini_ref/baseline_metrics.json \
+            --baseline-path model_registry/ct/baseline_metrics.json \
             --alerting-path data/mini_ref/alerting.yaml \
             --no-update-baseline
 
@@ -131,7 +143,7 @@ jobs:
           MODEL_DIR: model_registry/ct
           SPLIT_PATH: model_registry/ct/split.json
           CURRENT_METRICS_PATH: model_registry/ct/test_metrics.json
-          BASELINE_PATH: data/mini_ref/baseline_metrics.json
+          BASELINE_PATH: model_registry/ct/baseline_metrics.json
           ALERTING_PATH: data/mini_ref/alerting.yaml
           CLASSES_PATH: model_registry/ct/classes.json
           REQUIRE_SPLIT_MANIFEST: "1"
@@ -153,7 +165,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add model_registry/ct/classes.json \
+          git add model_registry/ct/baseline_metrics.json \
+                  model_registry/ct/classes.json \
                   model_registry/ct/split.json \
                   model_registry/ct/train_metrics.json \
                   model_registry/ct/test_metrics.json

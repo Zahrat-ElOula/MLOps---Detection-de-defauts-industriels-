@@ -218,7 +218,7 @@ Thresholds are defined in `configs/alerting.yaml`:
 
 The CI gate blocks the promotion of a model whose metrics fall below these thresholds. These thresholds intentionally stay on the **binary** contract (`good` vs any defect) so that CT and `test_regression.py` remain comparable across releases.
 
-The CT workflow uses its own tiny fixture (`data/mini_ref/`) and therefore its own smoke thresholds (`data/mini_ref/alerting.yaml`) and baseline (`data/mini_ref/baseline_metrics.json`). It also writes a dedicated `model_registry/ct/split.json`; the full-data `model_registry/split.json` is never overwritten by CT. `test_regression.py` additionally verifies that held-out files are disjoint from train/validation and that the metric count matches the held-out manifest.
+The CT workflow uses its own tiny fixture (`data/mini_ref/`) and therefore its own smoke thresholds (`data/mini_ref/alerting.yaml`) and dedicated baseline (`model_registry/ct/baseline_metrics.json`; created from the `data/mini_ref` template when absent). The production baseline is never read or overwritten by CT. CT also writes a dedicated `model_registry/ct/split.json`; the full-data `model_registry/split.json` is never overwritten by CT. Because a two-epoch retrain on four held-out images cannot support a reliable quality threshold, the CT gate is a plumbing smoke test, while production quality remains gated by the full-data baseline. `test_regression.py` additionally verifies that held-out files are disjoint from train/validation and that the metric count matches the held-out manifest; the file-existence check is skipped when the DVC dataset is not present.
 
 ### 📦 Model artefact versioning
 

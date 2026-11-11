@@ -13,6 +13,7 @@ never used for training or validation.
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Mapping
@@ -69,6 +70,15 @@ def train(
 
     logger = get_logger(__name__)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Reproducible retraining: the data split, weight initialisation and
+    # shuffling all use the same fixed seed.  This prevents a tiny CT smoke
+    # run from passing or failing only because of a different random init.
+    random.seed(SPLIT_SEED)
+    np.random.seed(SPLIT_SEED)
+    torch.manual_seed(SPLIT_SEED)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(SPLIT_SEED)
 
     data_root = Path(config.data_root)
     if not data_root.is_absolute():

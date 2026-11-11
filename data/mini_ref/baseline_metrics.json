@@ -1,6 +1,6 @@
 {
-  "accuracy": 0.3,
-  "f1": 0.3,
-  "mAP": 0.3,
-  "note": "CT smoke gate for the tiny mini_ref dataset. The full-data quality baseline remains model_registry/baseline_metrics.json."
+  "accuracy": 0.25,
+  "f1": 0.0,
+  "mAP": 0.0,
+  "note": "CT plumbing smoke gate for the tiny mini_ref dataset. A 2-epoch retrain on four held-out images cannot support a reliable quality threshold; production quality remains gated by model_registry/baseline_metrics.json."
 }
