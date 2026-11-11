@@ -78,3 +78,97 @@ The project covers two complementary areas:
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1  # Windows
 pip install -r requirements.txt
+```
+
+### 2. Data
+
+```bash
+# Download MVTec AD and place it in data/raw/
+dvc pull  # Fetch the versioned data
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+## 🚀 Usage
+
+### 🐳 Docker (recommended)
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+| Service | URL |
+|:--------|:----|
+| 🖥 Frontend | http://localhost:5173 |
+| 📖 API (Swagger) | http://localhost:8000/docs |
+
+### 🏋️ Training & Evaluation
+
+```bash
+python pipelines/train_pipeline.py --params configs/params.yaml
+python scripts/train_yolo.py
+python -m src.models.evaluate
+```
+
+### 🧪 Tests
+
+```bash
+pytest tests -v  # 17 tests
+```
+
+## 🧠 Deep Learning Pipeline
+
+| Step | File | Description |
+|:----:|:-----|:------------|
+| 1 | `src/models/train.py` | Progressive fine-tuning of ResNet18 with MLflow tracking and early stopping. |
+| 2 | `scripts/train_yolo.py` | YOLOv8 training on bounding boxes (15 categories). |
+| 3 | `src/models/evaluate.py` | Computes F1-score and mAP, and compares them against `baseline_metrics.json`. |
+| 4 | `src/utils/export.py` | ONNX export with fidelity check (max diff < 1e-4). |
+
+## ⚙️ MLOps Pipeline
+
+### 🔄 Automation (CI / CD / CT / Monitoring)
+
+| Workflow | Trigger | Action |
+|:---------|:--------|:-------|
+| **CI** | Push / Pull Request | Installs `libgl1` and runs `pytest` (17 tests, YOLO tests skipped if model absent). |
+| **CT** | **Push on `data/feedback/**`** + manual | Prepares mini dataset, retrains, runs non-regression tests, commits updated metrics. |
+| **Monitoring** | Manual (`workflow_dispatch`) | Runs Evidently drift report and uploads it as an artifact. |
+
+### ☸️ Kubernetes (required)
+
+```bash
+minikube start
+kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+minikube service industrial-defect-api
+```
+
+Two replicas of the API are deployed, guaranteeing high availability and load balancing.
+
+### 🚨 Alerting
+
+Thresholds are defined in `configs/alerting.yaml`:
+
+| Metric | Threshold | Action |
+|:-------|:---------:|:-------|
+| Accuracy | 85% | Alert if below |
+| F1-score | 80% | Alert if below |
+| mAP | 70% | Alert if below |
+| Data drift | 10% | Alert if above |
+
+The CI gate blocks the promotion of a model whose metrics fall below these thresholds.
+
+---
+
+<div align="center">
+
+Built with **PyTorch**, **YOLOv8**, **FastAPI**, **DVC**, **MLflow**, **Docker** and **Kubernetes** 🚀
+
+</div>
+```
