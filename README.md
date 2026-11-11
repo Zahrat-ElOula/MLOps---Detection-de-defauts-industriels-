@@ -53,14 +53,14 @@ The project covers two complementary areas:
 |:------|:------------|
 | 📊 **1. Data & Training** | The dataset is versioned with DVC. Training pipelines produce models serialized to ONNX, and MLflow tracks every experiment. |
 | 🌐 **2. Serving** | The FastAPI service loads the ONNX models and exposes `/predict` (classifier + YOLO) and `/feedback`. The React frontend supports image upload, webcam capture, and bounding-box visualization. |
-| 🔄 **3. MLOps** | User-reported errors are stored in `data/feedback/` and trigger Continuous Training (CT) through GitHub Actions. Docker orchestrates the whole stack. |
+| 🔄 **3. MLOps** | User-reported errors are stored in `data/feedback/`, uploaded to GitHub with retries, and trigger Continuous Training (CT) through GitHub Actions. Docker orchestrates the whole stack. |
 
 ## ✨ Features
 
 - 🤖 **Dual-model inference**: ResNet18 defect-type classifier (`good`, `broken_large`, `broken_small`, `contamination`) followed by YOLOv8 (defect localization).
 - 🏷 **Defect-type badge**: the API returns `defect_type` and per-class probabilities; the frontend displays a localized badge (FR/EN) and one probability bar per class.
 - 🎨 **Modern React interface**: Tailwind-based design, i18n (FR/EN), real-time camera input, feedback dropdown by defect type, and bounding-box overlay.
-- 🔁 **Feedback loop**: a "Report an error" flow saves the image and its corrected label to `data/feedback/`.
+- 🔁 **Feedback loop**: a "Report an error" flow saves the image and corrected label to `data/feedback/`, uploads the pair to GitHub with retries, and dispatches CT.
 - 🗂 **Full versioning**: Git (code + ONNX serving artefacts), DVC (data), MLflow (experiments).
 - ✅ **Automated tests**: API contract, multi-class data checks, model factory, and non-regression metrics.
 - 🛠 **GitHub Actions CI**: installs `libgl1` and skips YOLO tests when the model is not available.
@@ -159,17 +159,49 @@ pytest tests -v
 | Workflow | Trigger | Action |
 |:---------|:--------|:-------|
 | **CI** | Push / Pull Request | Installs `libgl1` and runs `pytest` (YOLO tests skipped if model absent). |
-| **CT** | **Push on `data/feedback/**`**, **cron (Monday 03:00 UTC)** + manual | Prepares a non-overlapping mini dataset, retrains, evaluates on its dedicated `model_registry/ct/split.json`, runs the smoke gate and commits the CT metrics. |
+| **CT** | **API `repository_dispatch` (`feedback-received`)**, **push on `data/feedback/**`**, **daily cron (03:00 UTC)** + manual | Prepares a non-overlapping mini dataset, retrains, evaluates on its dedicated `model_registry/ct/split.json`, runs the smoke gate and commits the CT metrics. |
 | **CD** | `workflow_run` on CI/CT success (main) + manual | Builds the API image, creates a kind cluster, deploys 2 replicas, runs `/health` + `/predict` smoke tests, then pushes `sha` and `latest` tags to GHCR on `main`. |
 | **Monitoring** | Manual (`workflow_dispatch`) | Runs Evidently drift report and uploads it as an artifact. |
 
 #### 🔁 Continuous Training triggers
 
-The CT workflow can be started in three ways:
+```text
+Frontend "Signaler une erreur"
+        │
+        ▼
+POST /feedback ──► data/feedback/ (image + .txt)
+        │                    │
+        │                    ├─ push / batch script ──► push event
+        │                    │
+        ▼                    ▼
+GitHub Contents API ◄── API GitHub sync (retry + pending state)
+   (png + txt)               │
+        │                    ▼
+        │          repository_dispatch: feedback-received
+        │                    │
+        └────────────────────┴──► CT (retrain + gate) ──► CD
+```
 
-1. **Push on feedback** — any push touching `data/feedback/**` starts a retrain.
-2. **Scheduled run** — every Monday at 03:00 UTC. If `data/feedback/` contains no image, the retrain steps are skipped.
-3. **Batch script** — publish only when enough new feedback is available:
+The CT workflow can be started in four ways:
+
+1. **API dispatch** — `POST /feedback` saves the image/label pair, uploads it through the GitHub Contents API, then sends one `repository_dispatch` (`feedback-received`).
+2. **Push on feedback** — any push touching `data/feedback/**` starts a retrain.
+3. **Scheduled safety net** — every day at 03:00 UTC. The first step compares `data/feedback/` with `model_registry/ct/last_feedback.json`; if every file was already consumed by a successful CT, the job stops before installing dependencies. After a successful run the bot commits the consumed file list in `model_registry/ct/last_feedback.json` with `[skip ci]`.
+4. **Manual** — `workflow_dispatch`.
+
+The API reads `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH`, `FEEDBACK_RETRY_SECONDS` (default `300` seconds) and `GITHUB_TIMEOUT_SECONDS` (default `10`). Missing token/repo settings disable synchronisation without preventing the API from starting: feedback stays pending locally and `/health` reports `github_sync.status = disabled`.
+
+| Safety net | Behaviour |
+|:-----------|:----------|
+| **Retry + backoff** | Each GitHub PUT is attempted up to 3 times with timeouts and exponential backoff. A `401`/`403` is not retried and is recorded. |
+| **Durable pending state** | A pair is added to `data/feedback/.pushed.json` only after both the image and its `.txt` succeeded. Otherwise it remains pending. |
+| **Startup + periodic resume** | Pending feedback is retried when the API starts, then every `FEEDBACK_RETRY_SECONDS` (5 minutes by default). |
+| **One dispatch per batch** | A successful pass uploads all pending pairs, then sends exactly one `feedback-received` dispatch. |
+| **`/health` visibility** | `/health` exposes `github_sync.status` (`ok`/`error`/`disabled`), `pending_feedback`, `last_success` and `last_error`. It stays HTTP 200 when GitHub is unreachable. |
+| **Daily cron + marker** | The 03:00 UTC schedule skips the job when `model_registry/ct/last_feedback.json` already lists every current feedback file. |
+| **Concurrency** | `ct-retrain` uses `cancel-in-progress: true`, so cascaded push/dispatch triggers do not leave duplicate retrains running. |
+
+The batch script remains available for manual publishing:
 
 ```bash
 # Dry run: show what would be committed
@@ -183,6 +215,8 @@ make feedback-push
 ```
 
 The batch size can also be set with `FEEDBACK_BATCH_SIZE` (default `5`).
+
+**Token lifetime.** Use a GitHub fine-grained PAT with **Contents: Read and write** (needed for the Contents API and `repository_dispatch`); a classic PAT needs the `repo` scope. Set an expiration date, record it, and renew or rotate the token before it expires by updating `GITHUB_TOKEN` in the API environment (and local `.env`). Never commit the real token. An expired or revoked token makes uploads return `401`; `/health` then shows `github_sync.status = error` with the pending count, while the daily cron remains the fallback.
 
 
 ### ☸️ Kubernetes (required)

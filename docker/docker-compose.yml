@@ -14,6 +14,11 @@ services:
       API_MODEL_PATH: /app/model_registry/model.onnx
       API_MODEL_BACKEND: auto
       LOG_JSON: "1"
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_REPO: ${GITHUB_REPO:-Zahrat-ElOula/MLOps---Detection-de-defauts-industriels-}
+      GITHUB_BRANCH: ${GITHUB_BRANCH:-main}
+      FEEDBACK_RETRY_SECONDS: ${FEEDBACK_RETRY_SECONDS:-300}
+      GITHUB_TIMEOUT_SECONDS: ${GITHUB_TIMEOUT_SECONDS:-10}
     volumes:
       - ../model_registry:/app/model_registry:ro
       - ../data/feedback:/app/data/feedback 

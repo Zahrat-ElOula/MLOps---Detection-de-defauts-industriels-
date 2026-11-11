@@ -58,6 +58,9 @@ yolov8n.pt
 # Feedback Loop (Continuous Training)
 # data/feedback is intentionally tracked so that a push can trigger CT.
 # Use scripts/auto_push_feedback.py or `make feedback-push` to publish batches.
+# The API keeps its push bookkeeping locally; it is not repository content.
+data/feedback/.pushed.json
+data/feedback/.pushed.json.tmp
 
 # Drift monitoring reports
 reports/drift_report.html

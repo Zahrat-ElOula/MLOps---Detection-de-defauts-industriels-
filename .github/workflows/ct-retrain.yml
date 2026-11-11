@@ -4,13 +4,15 @@ on:
   push:
     paths:
       - 'data/feedback/**'
+  repository_dispatch:
+    types: [feedback-received]
   schedule:
-    - cron: "0 3 * * 1"  # Every Monday at 03:00 UTC
+    - cron: "0 3 * * *"  # Every day at 03:00 UTC
   workflow_dispatch:
 
 concurrency:
   group: ct-retrain
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   retrain:
@@ -26,21 +28,60 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Count feedback images
+      - name: Check new feedback
         id: check
         run: |
-          count=$(find data/feedback -maxdepth 1 -type f \
+          image_count=$(find data/feedback -maxdepth 1 -type f \
             \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \
                -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) \
             2>/dev/null | wc -l)
-          echo "count=$count" >> "$GITHUB_OUTPUT"
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$count" -lt 1 ]; then
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "Scheduled run skipped: no feedback images."
-          else
+          echo "count=$image_count" >> "$GITHUB_OUTPUT"
+
+          # Push and repository_dispatch are explicit CT requests: run them.
+          if [ "${{ github.event_name }}" != "schedule" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "Feedback images: $count"
+            echo "Event '${{ github.event_name }}'; feedback images: $image_count"
+            exit 0
           fi
+
+          # Scheduled safety net: only retrain for files not consumed by the
+          # previous successful CT run.
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          feedback_dir = Path("data/feedback")
+          marker_path = Path("model_registry/ct/last_feedback.json")
+
+          current = sorted(
+              path.name
+              for path in feedback_dir.iterdir()
+              if path.is_file() and not path.name.startswith(".")
+          ) if feedback_dir.is_dir() else []
+
+          consumed = set()
+          if marker_path.is_file():
+              try:
+                  marker = json.loads(marker_path.read_text(encoding="utf-8"))
+              except (OSError, json.JSONDecodeError):
+                  marker = {}
+              if isinstance(marker, dict):
+                  marker = marker.get("files", [])
+              if isinstance(marker, list):
+                  consumed = {str(name) for name in marker}
+
+          new_files = [name for name in current if name not in consumed]
+          run = "true" if new_files else "false"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"run={run}\n")
+              handle.write(f"new_count={len(new_files)}\n")
+          print(f"New feedback files since last CT: {len(new_files)}")
+          for name in new_files:
+              print(f"  - {name}")
+          if not new_files:
+              print("Scheduled run skipped: no new feedback since last CT.")
+          PY
 
       - name: Set up Python 3.11
         if: steps.check.outputs.run == 'true'
@@ -150,6 +191,34 @@ jobs:
           REQUIRE_SPLIT_METRICS: "1"
         run: pytest tests/test_regression.py -v --maxfail=1
 
+      - name: Record consumed feedback
+        if: success() && steps.check.outputs.run == 'true'
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          feedback_dir = Path("data/feedback")
+          marker_path = Path("model_registry/ct/last_feedback.json")
+          marker_path.parent.mkdir(parents=True, exist_ok=True)
+
+          files = sorted(
+              path.name
+              for path in feedback_dir.iterdir()
+              if path.is_file() and not path.name.startswith(".")
+          ) if feedback_dir.is_dir() else []
+
+          payload = {
+              "updated_at": datetime.now(timezone.utc).isoformat(),
+              "files": files,
+          }
+          marker_path.write_text(
+              json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+          )
+          print(f"Recorded {len(files)} consumed feedback files.")
+          PY
+
       - name: Upload run artefacts
         if: always() && steps.check.outputs.run == 'true'
         uses: actions/upload-artifact@v4
@@ -169,6 +238,7 @@ jobs:
                   model_registry/ct/classes.json \
                   model_registry/ct/split.json \
                   model_registry/ct/train_metrics.json \
-                  model_registry/ct/test_metrics.json
+                  model_registry/ct/test_metrics.json \
+                  model_registry/ct/last_feedback.json
           git diff --cached --quiet || git commit -m "ct: retrain model on new data [skip ci]"
           git push

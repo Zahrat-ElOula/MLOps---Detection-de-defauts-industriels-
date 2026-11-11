@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.github_sync import GitHubSync
 from src.api.inference import ModelLoader, load_class_names
 from src.api.schemas import HealthResponse, PredictionResponse
 from src.config import Config, PROJECT_ROOT
@@ -18,6 +19,8 @@ from src.utils.logger import configure_logging
 
 configure_logging()
 logger = logging.getLogger(__name__)
+
+FEEDBACK_DIR = PROJECT_ROOT / "data" / "feedback"
 
 
 @asynccontextmanager
@@ -45,8 +48,24 @@ async def lifespan(app: FastAPI):
         logger.warning(f"YOLO file not found: {yolo_path}")
         app.state.yolo_detector = None
 
+    # Synchronisation GitHub : reprend les feedbacks en attente au démarrage,
+    # puis réessaie périodiquement. Une erreur GitHub ne bloque pas l'API.
+    github_sync: GitHubSync | None = None
+    try:
+        github_sync = GitHubSync.from_env(feedback_dir=FEEDBACK_DIR)
+        app.state.github_sync = github_sync
+        await github_sync.start()
+    except Exception as exc:
+        logger.warning(f"GitHub feedback sync unavailable: {type(exc).__name__}")
+        app.state.github_sync = None
+
     logger.info(f"YOLO loaded: {getattr(app.state, 'yolo_detector', None) is not None}")
-    yield
+    try:
+        yield
+    finally:
+        if github_sync is not None:
+            await github_sync.stop()
+            await github_sync.aclose()
 
 
 app = FastAPI(
@@ -67,9 +86,29 @@ app.add_middleware(
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 def health() -> HealthResponse:
     loader = getattr(app.state, "model_loader", None)
+    sync = getattr(app.state, "github_sync", None)
+    if sync is None:
+        github_sync = {
+            "status": "disabled",
+            "pending_feedback": 0,
+            "last_success": None,
+            "last_error": None,
+        }
+    else:
+        try:
+            github_sync = sync.status()
+        except Exception as exc:
+            logger.warning(f"GitHub sync status unavailable: {type(exc).__name__}")
+            github_sync = {
+                "status": "error",
+                "pending_feedback": 0,
+                "last_success": None,
+                "last_error": "GitHub sync status unavailable",
+            }
     return {
         "status": "ok",
         "model_loaded": loader.is_loaded() if loader else False,
+        "github_sync": github_sync,
     }
 
 
@@ -130,11 +169,11 @@ async def feedback(file: UploadFile = File(...), label: str = Form(...)):
             detail=f"Invalid label '{label}'. Allowed: {sorted(allowed)}",
         )
 
-    feedback_dir = Path("data/feedback")
-    feedback_dir.mkdir(parents=True, exist_ok=True)
+    FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    image_path = feedback_dir / f"{timestamp}_{file.filename or 'image'}"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    original_name = Path(file.filename or "image").name
+    image_path = FEEDBACK_DIR / f"{timestamp}_{original_name}"
 
     payload = await file.read()
     image_path.write_bytes(payload)
@@ -143,4 +182,24 @@ async def feedback(file: UploadFile = File(...), label: str = Form(...)):
     label_path.write_text(label, encoding="utf-8")
 
     logger.info(f"Feedback saved: {image_path} (label={label})")
-    return {"status": "success", "message": "Feedback enregistré dans data/feedback/"}
+
+    # Tentative d'envoi immédiate. En cas d'échec, le feedback reste dans
+    # data/feedback/ et sera repris par la tâche de fond.
+    sync = getattr(app.state, "github_sync", None)
+    pushed = False
+    if sync is not None and getattr(sync, "enabled", False):
+        try:
+            await sync.sync_pending()
+            pushed = sync.is_pushed(image_path)
+        except Exception as exc:
+            logger.warning(f"GitHub feedback push failed: {type(exc).__name__}")
+
+    if pushed:
+        return {
+            "status": "success",
+            "message": "Feedback enregistré et envoyé à GitHub",
+        }
+    return {
+        "status": "pending",
+        "message": "Feedback enregistré, envoi en cours de nouvelle tentative",
+    }

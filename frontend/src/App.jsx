@@ -19,6 +19,7 @@ function App() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [showFeedbackOptions, setShowFeedbackOptions] = useState(false);
   const [feedbackThanks, setFeedbackThanks] = useState(false);
+  const [feedbackPending, setFeedbackPending] = useState(false);
   const [selectedDefect, setSelectedDefect] = useState("");
 
   const clearPreview = () => {
@@ -29,6 +30,7 @@ function App() {
     setFeedbackSent(false);
     setShowFeedbackOptions(false);
     setFeedbackThanks(false);
+    setFeedbackPending(false);
     setSelectedDefect("");
   };
 
@@ -69,10 +71,16 @@ function App() {
   const onFeedback = async (label) => {
     if (!file) return;
     try {
-      await sendFeedback(file, label);
+      const data = await sendFeedback(file, label);
       setFeedbackSent(true);
       setShowFeedbackOptions(false);
-      setFeedbackThanks(true);
+      if (data?.status === "success") {
+        setFeedbackThanks(true);
+        setFeedbackPending(false);
+      } else {
+        setFeedbackThanks(false);
+        setFeedbackPending(true);
+      }
     } catch (e) {
       const detail = e.response?.data?.detail;
       setError(detail || e.message || t("error_generic"));
@@ -201,6 +209,10 @@ function App() {
 
             {feedbackSent && feedbackThanks && (
               <p className="text-emerald-600 font-medium">{t("feedback_thanks")}</p>
+            )}
+
+            {feedbackSent && feedbackPending && (
+              <p className="text-amber-600 font-medium">{t("feedback_pending")}</p>
             )}
 
             {/* Boutons principaux */}
