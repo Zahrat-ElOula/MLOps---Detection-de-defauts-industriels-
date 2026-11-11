@@ -164,7 +164,7 @@ Thresholds are defined in `configs/alerting.yaml`:
 
 The CI gate blocks the promotion of a model whose metrics fall below these thresholds.
 
----
+
 
 <div align="center">
 
