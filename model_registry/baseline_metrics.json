@@ -1,27 +1,63 @@
 {
-  "accuracy": 0.8554216867469879,
-  "precision": 1.0,
-  "recall": 0.8095238095238095,
-  "f1": 0.8947368421052632,
+  "accuracy": 0.92,
+  "precision": 0.9473684210526315,
+  "recall": 0.9473684210526315,
+  "f1": 0.9473684210526315,
   "confusion_matrix": [
     [
-      20,
+      5,
+      1
+    ],
+    [
+      1,
+      18
+    ]
+  ],
+  "mAP": 0.992217385569186,
+  "auroc": 0.9736842105263158,
+  "iou_threshold": 0.5,
+  "multiclass_accuracy": 0.8,
+  "multiclass_f1_macro": 0.7967449217449218,
+  "multiclass_precision_macro": 0.8011904761904762,
+  "multiclass_recall_macro": 0.7976190476190476,
+  "multiclass_confusion_matrix": [
+    [
+      5,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      5,
+      1,
       0
     ],
     [
-      12,
-      51
+      0,
+      1,
+      6,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      4
     ]
   ],
-  "mAP": 0.9980400957552644,
-  "auroc": 0.9936507936507937,
-  "iou_threshold": 0.5,
-  "multiclass_accuracy": null,
-  "multiclass_f1_macro": null,
+  "per_class_f1": {
+    "good": 0.8333333333333334,
+    "broken_large": 0.7692307692307693,
+    "broken_small": 0.8571428571428571,
+    "contamination": 0.7272727272727273
+  },
   "classes": [
     "good",
     "broken_large",
     "broken_small",
     "contamination"
-  ]
+  ],
+  "num_test_images": 25,
+  "eval_scope": "held_out_only"
 }
