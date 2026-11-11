@@ -1,0 +1,100 @@
+{
+  "metrics": {
+    "accuracy": 0.75,
+    "precision": 0.75,
+    "recall": 1.0,
+    "f1": 0.8571428571428571,
+    "confusion_matrix": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        3
+      ]
+    ],
+    "mAP": 0.8055555555555556,
+    "auroc": 0.3333333333333333,
+    "iou_threshold": 0.5,
+    "multiclass_accuracy": 0.25,
+    "multiclass_f1_macro": 0.1,
+    "multiclass_precision_macro": 0.0625,
+    "multiclass_recall_macro": 0.25,
+    "multiclass_confusion_matrix": [
+      [
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0
+      ]
+    ],
+    "per_class_f1": {
+      "good": 0.0,
+      "broken_large": 0.0,
+      "broken_small": 0.4,
+      "contamination": 0.0
+    },
+    "classes": [
+      "good",
+      "broken_large",
+      "broken_small",
+      "contamination"
+    ],
+    "num_test_images": 4,
+    "eval_scope": "held_out_only"
+  },
+  "comparison": {
+    "passed": true,
+    "regressions": [],
+    "improvements": [
+      {
+        "metric": "accuracy",
+        "old": 0.3,
+        "new": 0.75,
+        "delta": 0.45
+      },
+      {
+        "metric": "f1",
+        "old": 0.3,
+        "new": 0.8571428571428571,
+        "delta": 0.5571428571428572
+      },
+      {
+        "metric": "mAP",
+        "old": 0.3,
+        "new": 0.8055555555555556,
+        "delta": 0.5055555555555555
+      }
+    ]
+  },
+  "split": {
+    "path": "model_registry/ct/split.json",
+    "seed": 42,
+    "num_test_images": 4,
+    "counts": {
+      "test": 10,
+      "train": 5,
+      "val": 1,
+      "held_out": 4
+    }
+  }
+}

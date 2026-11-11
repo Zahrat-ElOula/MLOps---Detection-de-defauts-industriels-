@@ -1,0 +1,33 @@
+{
+  "seed": 42,
+  "holdout_fraction": 0.3,
+  "val_fraction": 0.2,
+  "classes": [
+    "good",
+    "broken_large",
+    "broken_small",
+    "contamination"
+  ],
+  "counts": {
+    "test": 10,
+    "train": 5,
+    "val": 1,
+    "held_out": 4
+  },
+  "held_out": [
+    "data/raw/bottle/test/broken_large/000.png",
+    "data/raw/bottle/test/broken_small/000.png",
+    "data/raw/bottle/test/contamination/000.png",
+    "data/raw/bottle/test/good/003.png"
+  ],
+  "train": [
+    "data/raw/bottle/test/broken_large/001.png",
+    "data/raw/bottle/test/broken_small/001.png",
+    "data/raw/bottle/test/contamination/001.png",
+    "data/raw/bottle/test/good/004.png",
+    "data/raw/bottle/test/good/20261111_200353_004.png"
+  ],
+  "val": [
+    "data/raw/bottle/test/good/20261111_201118_019.png"
+  ]
+}

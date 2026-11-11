@@ -1,0 +1,51 @@
+{
+  "best_val_loss": 1.6157782077789307,
+  "classes": [
+    "good",
+    "broken_large",
+    "broken_small",
+    "contamination"
+  ],
+  "num_classes": 4,
+  "class_weights": [
+    0.4,
+    2.0,
+    2.0,
+    2.0
+  ],
+  "split_path": "model_registry/ct/split.json",
+  "split_seed": 42,
+  "num_held_out": 4,
+  "accuracy": 0.0,
+  "precision": 0.0,
+  "recall": 0.0,
+  "f1": 0.0,
+  "confusion_matrix": [
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      0
+    ]
+  ],
+  "history": {
+    "train_loss": [
+      1.278408408164978,
+      1.0965524911880493
+    ],
+    "val_loss": [
+      1.7043442726135254,
+      1.6157782077789307
+    ],
+    "val_acc": [
+      0.0,
+      0.0
+    ],
+    "val_f1": [
+      0.0,
+      0.0
+    ]
+  }
+}
