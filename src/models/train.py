@@ -2,11 +2,13 @@
 
 This module implements the full training loop (progressive fine-tuning,
 early stopping, checkpointing) and logs parameters, metrics and artefacts
-to MLflow.
+to MLflow. The number of classes is inferred from the MVTec test
+sub-directories and persisted to ``model_registry/classes.json``.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Mapping
@@ -16,13 +18,51 @@ from src.config import Config, PROJECT_ROOT
 MODEL_REGISTRY_DIR = PROJECT_ROOT / "model_registry"
 
 
+def _stratified_split(
+    labels: list[int],
+    val_fraction: float = 0.3,
+    seed: int = 42,
+) -> tuple[list[int], list[int]]:
+    """Split indices, stratified on the class label when possible."""
+    import torch
+
+    n_samples = len(labels)
+    if n_samples < 2:
+        return list(range(n_samples)), []
+
+    n_val = max(1, int(round(val_fraction * n_samples)))
+    n_val = min(n_val, n_samples - 1)
+
+    try:
+        from collections import Counter
+
+        from sklearn.model_selection import train_test_split
+
+        if min(Counter(labels).values()) >= 2:
+            train_idx, val_idx = train_test_split(
+                list(range(n_samples)),
+                test_size=n_val,
+                stratify=labels,
+                random_state=seed,
+            )
+            return list(train_idx), list(val_idx)
+    except Exception:
+        pass
+
+    permutation = torch.randperm(
+        n_samples, generator=torch.Generator().manual_seed(seed)
+    ).tolist()
+    return permutation[n_val:], permutation[:n_val]
+
+
 def train(config, output_dir: Path | None = None,
           experiment_name: str | None = None) -> dict:
     """Boucle d'entraînement complète avec MLflow."""
     import mlflow
+    import numpy as np
     import torch
-    from torch.utils.data import DataLoader, ConcatDataset, random_split
-    from src.data.dataset import MVTecDataset
+    from torch.utils.data import DataLoader, ConcatDataset, Subset
+    from src.data.dataset import MVTecDataset, discover_classes
     from src.data.augmentations import get_train_transforms, get_val_transforms
     from src.models.build import build_model
     from src.models.evaluate import compute_classification_metrics
@@ -50,35 +90,42 @@ def train(config, output_dir: Path | None = None,
     logger = get_logger(__name__)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    data_root = Path(config.data_root)
+    if not data_root.is_absolute():
+        data_root = PROJECT_ROOT / data_root
+    classes = discover_classes(data_root, config.category)
+    num_classes = len(classes)
+    logger.info(f"Classes découvertes ({num_classes}) : {classes}")
+
     # 1. Datasets
-    # MVP supervisé : train = train/good + 70% de test/ (good + defect).
-    # Val = 30% de test/. À remplacer par un split stratifié (sklearn
-    # StratifiedShuffleSplit) avant la soutenance pour garantir la présence
-    # des deux classes en val.
+    # MVP supervisé : train = train/good + 70% de test/ (toutes classes).
+    # Val = 30% de test/ (split stratifié quand chaque classe a >= 2 images).
     good_train = MVTecDataset(
-        root=config.data_root, category=config.category,
+        root=data_root, category=config.category,
         split="train", transform=get_train_transforms(config.image_size),
+        classes=classes,
     )
     test_full = MVTecDataset(
-        root=config.data_root, category=config.category,
+        root=data_root, category=config.category,
         split="test", transform=get_val_transforms(config.image_size),
+        classes=classes,
     )
-    n_test = len(test_full)
-    n_val = max(1, int(0.3 * n_test))
-    n_train_complement = n_test - n_val
-    test_train_sub, val_sub = random_split(
-        test_full, [n_train_complement, n_val],
-        generator=torch.Generator().manual_seed(42),
-    )
-    train_ds = ConcatDataset([good_train, test_train_sub])
-    val_ds = val_sub
+    test_labels = list(test_full.labels)
+    train_idx, val_idx = _stratified_split(test_labels)
+    if not val_idx and train_idx:
+        val_idx = train_idx[-1:]
+        train_idx = train_idx[:-1]
+
+    train_ds = ConcatDataset([good_train, Subset(test_full, train_idx)])
+    val_ds = Subset(test_full, val_idx)
+    train_labels = list(good_train.labels) + [test_labels[i] for i in train_idx]
 
     # 2. DataLoaders
     train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_ds, batch_size=config.batch_size, shuffle=False, num_workers=0)
 
-    # 3. Modèle, loss, optim, scheduler
-    model = build_model(config.model_name, num_classes=2, pretrained=True).to(device)
+    # 3. Modèle, loss pondérée, optim, scheduler
+    model = build_model(config.model_name, num_classes=num_classes, pretrained=True).to(device)
     # --- Fine-tuning progressif : gel du backbone ---
     for param in model.parameters():
         param.requires_grad = False
@@ -88,11 +135,19 @@ def train(config, output_dir: Path | None = None,
     unfreeze_epoch = 5
     logger.info(f"Backbone gelé. Dégel prévu à l'epoch {unfreeze_epoch}.")
 
-    criterion = torch.nn.CrossEntropyLoss()
+    counts = np.bincount(np.asarray(train_labels), minlength=num_classes).astype(float)
+    class_weights = len(train_labels) / (num_classes * np.maximum(counts, 1.0))
+    logger.info(f"Pondération des classes : {class_weights.tolist()}")
+    criterion = torch.nn.CrossEntropyLoss(
+        weight=torch.tensor(class_weights, dtype=torch.float32, device=device)
+    )
     optimizer = torch.optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()), lr=config.lr
     )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", patience=2)
+
+    classes_path = output_dir / "classes.json"
+    classes_path.write_text(json.dumps(list(classes), indent=2), encoding="utf-8")
 
     # 4. MLflow
     mlflow.set_experiment(experiment_name or "mvtec-bottle-classification")
@@ -105,12 +160,15 @@ def train(config, output_dir: Path | None = None,
             "image_size": config.image_size,
             "early_stopping_patience": config.early_stopping_patience,
             "category": config.category,
+            "num_classes": num_classes,
+            "classes": ",".join(classes),
             "num_train": len(train_loader.dataset),
             "num_val": len(val_loader.dataset),
         })
 
         best_val_loss = float("inf")
         patience_counter = 0
+        metrics: dict[str, Any] = {}
         history = {"train_loss": [], "val_loss": [], "val_acc": [], "val_f1": []}
 
         for epoch in range(config.epochs):
@@ -151,8 +209,10 @@ def train(config, output_dir: Path | None = None,
                     all_labels.extend(labels.cpu().tolist())
             val_loss /= len(val_loader.dataset)
 
-            # --- métriques ---
-            metrics = compute_classification_metrics(all_labels, all_preds)
+            # --- métriques multi-classes ---
+            metrics = compute_classification_metrics(
+                all_labels, all_preds, average="macro" if num_classes > 2 else None
+            )
             logger.info(f"Epoch {epoch+1}: train_loss={train_loss:.4f} val_loss={val_loss:.4f} "
                         f"val_acc={metrics['accuracy']:.4f} val_f1={metrics['f1']:.4f}")
 
@@ -178,18 +238,19 @@ def train(config, output_dir: Path | None = None,
                     break
 
         # 5. Sauvegarder métriques finales + artefacts
-        import json
-        with open(output_dir / "train_metrics.json", "w", encoding="utf-8") as f:
-            json.dump({
-                "best_val_loss": best_val_loss,
-                "accuracy": metrics["accuracy"],
-                "precision": metrics["precision"],
-                "recall": metrics["recall"],
-                "f1": metrics["f1"],
-                "confusion_matrix": metrics["confusion_matrix"],
-                "history": history,
-            }, f, indent=2)
+        payload = {
+            "best_val_loss": best_val_loss,
+            "classes": list(classes),
+            "num_classes": num_classes,
+            "class_weights": class_weights.tolist(),
+            **metrics,
+            "history": history,
+        }
+        (output_dir / "train_metrics.json").write_text(
+            json.dumps(payload, indent=2), encoding="utf-8"
+        )
         mlflow.log_artifact(str(output_dir / "train_metrics.json"))
+        mlflow.log_artifact(str(classes_path))
         mlflow.log_artifact(str(output_dir / "model.pt"))
 
-    return {"best_val_loss": best_val_loss, "final_metrics": metrics}
+    return payload

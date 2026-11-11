@@ -1,9 +1,4 @@
-from pydantic import BaseModel
-
-
-class Probabilities(BaseModel):
-    good: float
-    defect: float
+from pydantic import BaseModel, Field
 
 
 class BoundingBox(BaseModel):
@@ -16,12 +11,13 @@ class BoundingBox(BaseModel):
 
 class PredictionResponse(BaseModel):
     label: str
+    defect_type: str = "none"
     confidence: float
-    probabilities: Probabilities
-    boxes: list[BoundingBox] = []
+    probabilities: dict[str, float]
+    classes: list[str] = Field(default_factory=list)
+    boxes: list[BoundingBox] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
-

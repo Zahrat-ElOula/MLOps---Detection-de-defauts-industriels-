@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from src.data.augmentations import get_train_transforms, get_val_transforms
-from src.data.dataset import DEFECT_LABEL, GOOD_LABEL, MVTecDataset
+from src.data.dataset import DEFECT_LABEL, GOOD_LABEL, MVTecDataset, discover_classes
 
 
 @pytest.fixture()
@@ -79,3 +79,39 @@ def test_train_transforms_are_deterministic_in_shape() -> None:
     transformed = get_train_transforms(image_size=224)(image=image)["image"]
 
     assert tuple(transformed.shape) == (3, 224, 224)
+
+
+def test_dataset_supports_multiclass_labels(tmp_path: Path) -> None:
+    """Explicit classes map each test sub-directory to its own index."""
+    classes = ["good", "broken_large", "broken_small", "contamination"]
+    for class_name in classes:
+        class_dir = tmp_path / "bottle" / "test" / class_name
+        class_dir.mkdir(parents=True)
+        (class_dir / "sample.png").write_bytes(b"not-an-image")
+
+    dataset = MVTecDataset(
+        root=tmp_path,
+        category="bottle",
+        split="test",
+        classes=classes,
+    )
+
+    assert dataset.class_names() == tuple(classes)
+    assert set(dataset.labels) == set(range(len(classes)))
+    labels_by_path = dict(zip(dataset.samples, dataset.labels))
+    assert labels_by_path[
+        tmp_path / "bottle" / "test" / "contamination" / "sample.png"
+    ] == 3
+
+
+def test_discover_classes_puts_good_first(tmp_path: Path) -> None:
+    """Class discovery is deterministic and keeps good at index 0."""
+    for class_name in ("broken_small", "good", "broken_large", "contamination"):
+        (tmp_path / "bottle" / "test" / class_name).mkdir(parents=True)
+
+    assert discover_classes(tmp_path, "bottle") == [
+        "good",
+        "broken_large",
+        "broken_small",
+        "contamination",
+    ]

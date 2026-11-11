@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.inference import ModelLoader
+from src.api.inference import ModelLoader, load_class_names
 from src.api.schemas import HealthResponse, PredictionResponse
 from src.config import Config, PROJECT_ROOT
 from src.models.yolo_detector import YOLODetector
@@ -107,13 +107,29 @@ async def predict(file: UploadFile = File(...)) -> PredictionResponse:
     else:
         result["boxes"] = []
 
-    logger.info(f"Returning result with {len(result.get('boxes', []))} boxes")
+    logger.info(
+        f"Returning label={result.get('label')} defect_type={result.get('defect_type')} "
+        f"with {len(result.get('boxes', []))} boxes"
+    )
     return result
 
 
 @app.post("/feedback", tags=["feedback"])
 async def feedback(file: UploadFile = File(...), label: str = Form(...)):
-    """Store a user-corrected label next to the image for continuous training."""
+    """Store a user-corrected label next to the image for continuous training.
+
+    Accepted labels are ``good``, every defect type from ``classes.json`` and
+    the legacy binary ``defect`` (stored for traceability but ignored by the
+    multi-class training preparation).
+    """
+    label = (label or "").strip()
+    allowed = set(load_class_names()) | {"defect"}
+    if label not in allowed:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid label '{label}'. Allowed: {sorted(allowed)}",
+        )
+
     feedback_dir = Path("data/feedback")
     feedback_dir.mkdir(parents=True, exist_ok=True)
 

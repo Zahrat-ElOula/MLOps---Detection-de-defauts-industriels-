@@ -6,6 +6,8 @@ import ResultOverlay from "./components/ResultOverlay";
 import ConfidenceScore from "./components/ConfidenceScore";
 import { predictImage, sendFeedback } from "./services/api";
 
+const KNOWN_DEFECT_TYPES = ["broken_large", "broken_small", "contamination"];
+
 function App() {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState("upload");
@@ -17,6 +19,7 @@ function App() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [showFeedbackOptions, setShowFeedbackOptions] = useState(false);
   const [feedbackThanks, setFeedbackThanks] = useState(false);
+  const [selectedDefect, setSelectedDefect] = useState("");
 
   const clearPreview = () => {
     if (imageUrl) URL.revokeObjectURL(imageUrl);
@@ -26,6 +29,7 @@ function App() {
     setFeedbackSent(false);
     setShowFeedbackOptions(false);
     setFeedbackThanks(false);
+    setSelectedDefect("");
   };
 
   const onFileSelected = (f) => {
@@ -93,6 +97,15 @@ function App() {
     document.title = t("title");
   }, [t]);
 
+  const availableDefectTypes = Array.from(
+    new Set([
+      ...KNOWN_DEFECT_TYPES,
+      ...Object.keys(result?.probabilities || {}).filter(
+        (name) => name !== "good" && name !== "defect"
+      ),
+    ])
+  );
+
   return (
     <div className="min-h-screen bg-slate-50/50 text-slate-800">
       <div className="max-w-7xl mx-auto bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-slate-100 p-8">
@@ -140,18 +153,31 @@ function App() {
             {result && !feedbackSent && (
               <div className="flex flex-col gap-2 items-start">
                 {showFeedbackOptions ? (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => onFeedback("good")}
                       className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition"
                     >
                       {t("feedback_good")}
                     </button>
-                    <button
-                      onClick={() => onFeedback("defect")}
-                      className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-white border-rose-200 text-rose-700 hover:bg-rose-50 transition"
+                    <select
+                      value={selectedDefect}
+                      onChange={(e) => setSelectedDefect(e.target.value)}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-200"
                     >
-                      {t("feedback_defect")}
+                      <option value="">{t("feedback_select_defect")}</option>
+                      {availableDefectTypes.map((name) => (
+                        <option key={name} value={name}>
+                          {t(`defect_${name}`, { defaultValue: name })}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => selectedDefect && onFeedback(selectedDefect)}
+                      disabled={!selectedDefect}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-white border-rose-200 text-rose-700 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {t("feedback_send")}
                     </button>
                   </div>
                 ) : (

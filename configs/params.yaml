@@ -5,7 +5,9 @@ lr: 0.001
 batch_size: 32
 epochs: 20
 image_size: 224
-num_classes: 2
+# Kept for backward compatibility. The effective class count is inferred from
+# data/raw/<category>/test sub-directories and saved to model_registry/classes.json.
+num_classes: 4
 early_stopping_patience: 5
 device: auto
 category: bottle

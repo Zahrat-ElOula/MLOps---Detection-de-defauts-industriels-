@@ -1,8 +1,9 @@
 """Evaluation metrics and baseline comparison.
 
 The functions below define the contract used by the regression tests and the
-CT workflow. Metrics are computed from binary anomaly scores; localisation
-(boxes/masks) is intentionally out of scope for this MVP.
+CT workflow. Binary metrics (``good`` vs any defect) remain the quality-gate
+contract, while multi-class metrics (defect type) are reported alongside.
+Localisation (boxes/masks) is intentionally out of scope for this MVP.
 """
 
 from __future__ import annotations
@@ -21,7 +22,12 @@ MODEL_REGISTRY_DIR = PROJECT_ROOT / "model_registry"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
 
-def compute_classification_metrics(y_true, y_pred) -> dict:
+def compute_classification_metrics(y_true, y_pred, average: str | None = None) -> dict:
+    """Compute accuracy/precision/recall/F1 and the confusion matrix.
+
+    ``average=None`` keeps the historical binary behaviour. Pass
+    ``average="macro"`` for multi-class training metrics.
+    """
     from sklearn.metrics import (
         accuracy_score,
         confusion_matrix,
@@ -29,13 +35,106 @@ def compute_classification_metrics(y_true, y_pred) -> dict:
         precision_score,
         recall_score,
     )
+
+    kwargs: dict[str, Any] = {"zero_division": 0}
+    if average is not None:
+        kwargs["average"] = average
     return {
         "accuracy": accuracy_score(y_true, y_pred),
-        "precision": precision_score(y_true, y_pred, zero_division=0),
-        "recall": recall_score(y_true, y_pred, zero_division=0),
-        "f1": f1_score(y_true, y_pred, zero_division=0),
+        "precision": precision_score(y_true, y_pred, **kwargs),
+        "recall": recall_score(y_true, y_pred, **kwargs),
+        "f1": f1_score(y_true, y_pred, **kwargs),
         "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
     }
+
+
+def compute_multiclass_metrics(
+    y_true: Sequence[int] | np.ndarray,
+    y_pred: Sequence[int] | np.ndarray,
+    classes: Sequence[str],
+) -> dict[str, Any]:
+    """Compute multi-class metrics (accuracy + macro F1 + per-class F1)."""
+    from sklearn.metrics import (
+        accuracy_score,
+        confusion_matrix,
+        f1_score,
+        precision_score,
+        recall_score,
+    )
+
+    labels = list(range(len(classes)))
+    per_class_f1 = f1_score(
+        y_true, y_pred, labels=labels, average=None, zero_division=0
+    )
+    return {
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "f1_macro": float(
+            f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        ),
+        "precision_macro": float(
+            precision_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        ),
+        "recall_macro": float(
+            recall_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        ),
+        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),
+        "per_class_f1": {
+            name: float(score) for name, score in zip(classes, per_class_f1)
+        },
+    }
+
+
+def save_confusion_matrix(
+    matrix: Sequence[Sequence[int]],
+    classes: Sequence[str],
+    output_dir: Path | None = None,
+) -> tuple[Path, Path]:
+    """Save the true confusion matrix as CSV and PNG.
+
+    The CSV is always written; the PNG is best-effort (matplotlib may be
+    unavailable in minimal environments).
+    """
+    figures_dir = output_dir or (REPORTS_DIR / "figures")
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    values = np.asarray(matrix, dtype=int)
+
+    csv_path = figures_dir / "confusion_matrix.csv"
+    np.savetxt(
+        csv_path,
+        values,
+        fmt="%d",
+        delimiter=",",
+        header=",".join(classes),
+        comments="",
+    )
+
+    png_path = figures_dir / "confusion_matrix.png"
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        size = max(4, len(classes) + 1)
+        fig, ax = plt.subplots(figsize=(size, size))
+        image = ax.imshow(values, cmap="Blues")
+        ax.set_xticks(range(len(classes)))
+        ax.set_yticks(range(len(classes)))
+        ax.set_xticklabels(classes, rotation=45, ha="right")
+        ax.set_yticklabels(classes)
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("True")
+        for row in range(values.shape[0]):
+            for col in range(values.shape[1]):
+                ax.text(col, row, str(values[row, col]), ha="center", va="center")
+        fig.colorbar(image, ax=ax)
+        fig.tight_layout()
+        fig.savefig(png_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+    except Exception:
+        pass
+
+    return csv_path, png_path
 
 
 def compute_detection_metrics(
@@ -129,13 +228,24 @@ def check_alerts(metrics: dict, config: Config) -> list[str]:
     return alerts
 
 
+def _load_class_names(path: Path) -> tuple[str, ...]:
+    """Read ``classes.json`` (plain list or ``{"classes": [...]}`)."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return ("good", "defect")
+    values = raw.get("classes", raw) if isinstance(raw, dict) else raw
+    names = tuple(str(name) for name in values)
+    return names if len(names) >= 2 else ("good", "defect")
+
+
 def main() -> None:
     """CLI entry point used by ``dvc.yaml`` and CI."""
     import torch
     from torch.utils.data import DataLoader
 
     from src.data.augmentations import get_val_transforms
-    from src.data.dataset import MVTecDataset
+    from src.data.dataset import MVTecDataset, discover_classes
     from src.models.build import build_model
     from src.utils.logger import configure_logging, get_logger
 
@@ -161,10 +271,17 @@ def main() -> None:
     else:
         device = torch.device(device_name)
 
+    classes_path = MODEL_REGISTRY_DIR / "classes.json"
+    if classes_path.is_file():
+        classes = _load_class_names(classes_path)
+    else:
+        classes = tuple(discover_classes(data_root, str(config.get("category"))))
+    good_index = classes.index("good") if "good" in classes else 0
+
     model_path = MODEL_REGISTRY_DIR / "model.pt"
     model = build_model(
         str(config.get("model_name", "resnet50")),
-        num_classes=2,
+        num_classes=len(classes),
         pretrained=False,
         device=device,
     )
@@ -176,6 +293,7 @@ def main() -> None:
         category=str(config.get("category")),
         split="test",
         transform=get_val_transforms(int(config.get("image_size", 224))),
+        classes=classes,
     )
     test_loader = DataLoader(
         test_ds,
@@ -192,14 +310,32 @@ def main() -> None:
         for images, batch_labels in test_loader:
             images = images.to(device)
             logits = model(images)
-            probabilities = torch.softmax(logits, dim=1)[:, 1]
-
-            predictions.extend(logits.argmax(dim=1).cpu().tolist())
+            probabilities = torch.softmax(logits, dim=1)
+            predictions.extend(probabilities.argmax(dim=1).cpu().tolist())
             labels.extend(batch_labels.cpu().tolist())
-            scores.extend(probabilities.cpu().tolist())
+            scores.extend((1.0 - probabilities[:, good_index]).cpu().tolist())
 
-    metrics = compute_classification_metrics(labels, predictions)
-    metrics.update(compute_detection_metrics(labels, scores))
+    binary_labels = [0 if label == good_index else 1 for label in labels]
+    binary_predictions = [0 if pred == good_index else 1 for pred in predictions]
+
+    metrics = compute_classification_metrics(binary_labels, binary_predictions)
+    metrics.update(compute_detection_metrics(binary_labels, scores))
+    multiclass = compute_multiclass_metrics(labels, predictions, classes)
+    metrics.update({
+        "multiclass_accuracy": multiclass["accuracy"],
+        "multiclass_f1_macro": multiclass["f1_macro"],
+        "multiclass_precision_macro": multiclass["precision_macro"],
+        "multiclass_recall_macro": multiclass["recall_macro"],
+        "multiclass_confusion_matrix": multiclass["confusion_matrix"],
+        "per_class_f1": multiclass["per_class_f1"],
+        "classes": list(classes),
+    })
+
+    csv_path, png_path = save_confusion_matrix(
+        multiclass["confusion_matrix"], classes
+    )
+    logger.info("Confusion matrix CSV: %s", csv_path)
+    logger.info("Confusion matrix PNG: %s", png_path)
 
     baseline_path = MODEL_REGISTRY_DIR / "baseline_metrics.json"
     baseline: dict[str, Any] = {}
@@ -238,6 +374,7 @@ def main() -> None:
         logger.info("Aucune alerte : toutes les métriques sont au-dessus des seuils.")
 
     logger.info("Evaluation metrics: %s", metrics)
+    logger.info("Multi-class metrics: %s", multiclass)
     logger.info("Comparison with baseline: %s", comparison)
 
 

@@ -16,7 +16,15 @@
     ],
     "mAP": 0.9980400957552644,
     "auroc": 0.9936507936507937,
-    "iou_threshold": 0.5
+    "iou_threshold": 0.5,
+    "multiclass_accuracy": null,
+    "multiclass_f1_macro": null,
+    "classes": [
+      "good",
+      "broken_large",
+      "broken_small",
+      "contamination"
+    ]
   },
   "comparison": {
     "passed": true,

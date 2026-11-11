@@ -41,11 +41,23 @@ export default function ResultOverlay({ imageUrl, result, boxes = [] }) {
 
   if (!result) return null;
   const isGood = result.label === "good";
+  const classLabel = (name) => {
+    if (!name || name === "none") return t("defect_none");
+    if (name === "good") return t("label_good");
+    if (name === "defect") return t("label_defect");
+    return t(`defect_${name}`, { defaultValue: name });
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
       <div className={`px-6 py-4 text-center text-lg font-semibold tracking-wide ${isGood ? "bg-emerald-50 text-emerald-700 border-b border-emerald-100" : "bg-rose-50 text-rose-700 border-b border-rose-100"}`}>
         {isGood ? t("result_good") : t("result_defect")}
+      </div>
+      <div className="px-6 py-2 text-sm text-center bg-slate-50 border-b border-slate-100">
+        <span className="text-slate-500">{t("defect_type_label")} : </span>
+        <span className={`font-semibold ${isGood ? "text-emerald-700" : "text-rose-700"}`}>
+          {isGood ? t("defect_none") : classLabel(result.defect_type)}
+        </span>
       </div>
       <div className="relative bg-slate-50/50">
         {imageUrl && (

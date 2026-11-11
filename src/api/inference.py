@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from io import BytesIO
 from pathlib import Path
@@ -11,6 +12,40 @@ import numpy as np
 from PIL import Image
 
 from src.config import PROJECT_ROOT
+
+
+def load_class_names(
+    classes_path: str | Path | None = None,
+    num_outputs: int | None = None,
+) -> tuple[str, ...]:
+    """Load the class list from ``classes.json``.
+
+    When the saved list does not match the ONNX output dimension (for
+    example an old binary model), fall back to ``("good", "defect")`` or
+    generic names. This keeps old artefacts servable during migration.
+    """
+    candidates: list[Path] = []
+    if classes_path is not None:
+        candidates.append(Path(classes_path))
+    candidates.append(PROJECT_ROOT / "model_registry" / "classes.json")
+
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        values = raw.get("classes", raw) if isinstance(raw, dict) else raw
+        names = tuple(str(name) for name in values)
+        if num_outputs is None or len(names) == num_outputs:
+            return names
+
+    if num_outputs == 2:
+        return ("good", "defect")
+    if num_outputs and num_outputs > 0:
+        return tuple(f"class_{index}" for index in range(num_outputs))
+    return ("good", "defect")
 
 
 class ModelLoader:
@@ -29,7 +64,7 @@ class ModelLoader:
         self.session: Any = None
         self._model: Any = None
         self.input_name: str | None = None
-        self.class_names = ("good", "defect")
+        self.class_names: tuple[str, ...] = load_class_names()
         # Ensure attributes exist
         object.__setattr__(self, "_session", getattr(self, "_session", None))
         object.__setattr__(self, "session", getattr(self, "session", None))
@@ -74,6 +109,15 @@ class ModelLoader:
             self.session = sess
             self._session = sess
             self.input_name = sess.get_inputs()[0].name
+
+            num_outputs: int | None = None
+            try:
+                output_shape = sess.get_outputs()[0].shape
+                if output_shape and isinstance(output_shape[-1], int):
+                    num_outputs = output_shape[-1]
+            except Exception:
+                pass
+            self.class_names = load_class_names(mp.parent / "classes.json", num_outputs)
         except Exception:
             self.session = None
             self._session = None
@@ -108,13 +152,25 @@ class ModelLoader:
                 pass
         arr = self._preprocess(image_bytes)
         logits = sess.run(None, {inp: arr})[0]
-        probs = self._softmax(logits[0])
-        idx = int(np.argmax(probs))
+        probs = np.asarray(self._softmax(logits[0])).reshape(-1)
+
+        names = tuple(self.class_names)
+        if len(names) < len(probs):
+            names = names + tuple(
+                f"class_{index}" for index in range(len(names), len(probs))
+            )
+        names = names[: len(probs)]
+
+        index = int(np.argmax(probs))
+        predicted = names[index]
+        is_good = predicted == "good"
+        probabilities = {
+            name: float(probs[position]) for position, name in enumerate(names)
+        }
         return {
-            "label": self.class_names[idx],
-            "confidence": float(probs[idx]),
-            "probabilities": {
-                "good": float(probs[0]),
-                "defect": float(probs[1]),
-            },
+            "label": "good" if is_good else "defect",
+            "defect_type": "none" if is_good else predicted,
+            "confidence": float(probs[index]),
+            "probabilities": probabilities,
+            "classes": list(names),
         }

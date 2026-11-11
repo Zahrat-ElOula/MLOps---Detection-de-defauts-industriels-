@@ -29,6 +29,14 @@ def test_build_model_forward_pass() -> None:
     assert torch.isfinite(logits).all()
 
 
+def test_build_model_supports_multiclass_head() -> None:
+    """The classifier head can be sized for the MVTec defect types."""
+    model = build_model("resnet18", num_classes=4, pretrained=False, device="cpu")
+
+    assert isinstance(model.fc, torch.nn.Linear)
+    assert model.fc.out_features == 4
+
+
 def test_build_model_rejects_unknown_architecture() -> None:
     """Unsupported names raise a helpful ValueError."""
     with pytest.raises(ValueError, match="Unsupported model"):

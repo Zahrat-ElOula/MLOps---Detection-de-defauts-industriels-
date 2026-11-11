@@ -96,3 +96,13 @@ def test_metrics_meet_alerting_thresholds() -> None:
     assert current.get("accuracy", 0.0) >= thresholds["accuracy_threshold"]
     assert current.get("f1", 0.0) >= thresholds["f1_threshold"]
     assert current.get("mAP", 0.0) >= thresholds["mAP_threshold"]
+
+
+def test_classes_file_matches_bottle_taxonomy() -> None:
+    """The multi-class registry uses good + the three bottle defect types."""
+    classes_path = PROJECT_ROOT / "model_registry" / "classes.json"
+    raw = _load_json(classes_path)
+
+    classes = raw.get("classes", raw) if isinstance(raw, dict) else raw
+    assert classes[0] == "good"
+    assert {"broken_large", "broken_small", "contamination"}.issubset(set(classes))

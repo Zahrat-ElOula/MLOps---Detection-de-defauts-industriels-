@@ -28,8 +28,17 @@ const resources = {
       no_analysis: "Aucune analyse pour le moment",
       empty_hint: "Ajoutez une image et cliquez sur « Analyser »",
       scores_title: "Scores de confiance",
+      probabilities_title: "Probabilités par classe",
       label_good: "Conforme",
-      label_defect: "Défaut"
+      label_defect: "Défaut",
+      defect_type_label: "Type de défaut",
+      defect_none: "Aucun",
+      defect_broken_large: "Cassure importante",
+      defect_broken_small: "Fissure / petite cassure",
+      defect_contamination: "Contamination",
+      defect_defect: "Défaut",
+      feedback_select_defect: "Choisir un type de défaut",
+      feedback_send: "Envoyer"
     }
   },
   en: {
@@ -58,8 +67,17 @@ const resources = {
       no_analysis: "No analysis yet",
       empty_hint: "Add an image and click \"Analyze\"",
       scores_title: "Confidence scores",
+      probabilities_title: "Per-class probabilities",
       label_good: "Good",
-      label_defect: "Defect"
+      label_defect: "Defect",
+      defect_type_label: "Defect type",
+      defect_none: "None",
+      defect_broken_large: "Large break",
+      defect_broken_small: "Small crack",
+      defect_contamination: "Contamination",
+      defect_defect: "Defect",
+      feedback_select_defect: "Select a defect type",
+      feedback_send: "Send"
     }
   }
 };
