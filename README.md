@@ -1,4 +1,3 @@
-
 <div align="center">
 
 # 🏭 Industrial Defect Detection
@@ -32,7 +31,7 @@
 ---
 
 > [!NOTE]
-> **Status: Completed.** The system is fully functional end to end, featuring a two-stage architecture (classification + detection), a containerized API, a modern web interface, and a complete MLOps pipeline. CI is green (17 tests passed).
+> **Status: Completed.** The system is fully functional end to end, featuring a two-stage architecture (classification + detection), a containerized API, a modern web interface, and a complete MLOps pipeline. CI is green (17 tests passed). The Continuous Training workflow is triggered automatically by a push on `data/feedback/`.
 
 ## 📋 Overview
 
@@ -71,6 +70,7 @@ The project covers two complementary areas:
 | 🐍 Python | 3.11 |
 | 🟢 Node.js | 22+ |
 | 🐳 Docker Desktop | Latest |
+| ☸️ Minikube | Latest |
 
 ### 1. Backend & API
 
@@ -78,83 +78,3 @@ The project covers two complementary areas:
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1  # Windows
 pip install -r requirements.txt
-```
-
-### 2. Data
-
-```bash
-# Download MVTec AD and place it in data/raw/
-dvc pull  # Fetch the versioned data
-```
-
-### 3. Frontend
-
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-## 🚀 Usage
-
-### 🐳 Docker (recommended)
-
-```bash
-docker compose -f docker/docker-compose.yml up -d --build
-```
-
-| Service | URL |
-|:--------|:----|
-| 🖥 Frontend | http://localhost:5173 |
-| 📖 API (Swagger) | http://localhost:8000/docs |
-
-### 🏋️ Training & Evaluation
-
-```bash
-python pipelines/train_pipeline.py --params configs/params.yaml
-python scripts/train_yolo.py
-python -m src.models.evaluate
-```
-
-### 🧪 Tests
-
-```bash
-pytest tests -v  # 17 tests
-```
-
-## 🧠 Deep Learning Pipeline
-
-| Step | File | Description |
-|:----:|:-----|:------------|
-| 1 | `src/models/train.py` | Progressive fine-tuning of ResNet18 with MLflow tracking and early stopping. |
-| 2 | `scripts/train_yolo.py` | YOLOv8 training on bounding boxes (15 categories). |
-| 3 | `src/models/evaluate.py` | Computes F1-score and mAP, and compares them against `baseline_metrics.json`. |
-| 4 | `src/utils/export.py` | ONNX export with fidelity check (max diff < 1e-4). |
-
-## ⚙️ MLOps Pipeline
-
-### 🔄 Automation (CI / CT)
-
-| Workflow | Trigger | Action |
-|:---------|:--------|:-------|
-| **CI** | Push / Pull Request | Installs `libgl1` and runs `pytest` (skips YOLO tests if the model is absent). |
-| **CT** | Manual (`workflow_dispatch`) | Retraining followed by non-regression tests on new feedback data. |
-| **Monitoring** | Manual (`workflow_dispatch`) | Runs Evidently data drift report and uploads it as an artifact. |
-
-### ☸️ Kubernetes
-
-```bash
-minikube start
-kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
-minikube service industrial-defect-api
-```
-
----
-
-<div align="center">
-
-Built with **PyTorch**, **YOLOv8**, **FastAPI**, **DVC**, **MLflow** and **Docker** 🚀
-
-</div>
-
-
