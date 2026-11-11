@@ -20,6 +20,8 @@ stages:
     outs:
       - model_registry/model.pt:
           cache: false
+      - model_registry/split.json:
+          cache: false
     metrics:
       - model_registry/train_metrics.json:
           cache: false
@@ -28,6 +30,7 @@ stages:
     deps:
       - src/
       - model_registry/model.pt
+      - model_registry/split.json
       - data/raw
     metrics:
       - model_registry/baseline_metrics.json:

@@ -131,6 +131,12 @@ python -m src.models.evaluate
 python scripts/train_yolo.py
 ```
 
+Training uses a deterministic, stratified split (`seed=42`). It keeps **30 % of
+the test images aside** in `model_registry/split.json` (`held_out` list); those
+files are never used for training or validation. Evaluation refuses to run
+without this manifest and computes binary + multi-class metrics only on the
+held-out files.
+
 ### 🧪 Tests
 
 ```bash
@@ -153,7 +159,7 @@ pytest tests -v
 | Workflow | Trigger | Action |
 |:---------|:--------|:-------|
 | **CI** | Push / Pull Request | Installs `libgl1` and runs `pytest` (YOLO tests skipped if model absent). |
-| **CT** | **Push on `data/feedback/**`**, **cron (Monday 03:00 UTC)** + manual | Prepares the mini dataset, retrains, evaluates, runs non-regression tests and commits updated metrics. |
+| **CT** | **Push on `data/feedback/**`**, **cron (Monday 03:00 UTC)** + manual | Prepares a non-overlapping mini dataset, retrains, evaluates on its dedicated `model_registry/ct/split.json`, runs the smoke gate and commits the CT metrics. |
 | **CD** | `workflow_run` on CI/CT success (main) + manual | Builds the API image, creates a kind cluster, deploys 2 replicas, runs `/health` + `/predict` smoke tests, then pushes `sha` and `latest` tags to GHCR on `main`. |
 | **Monitoring** | Manual (`workflow_dispatch`) | Runs Evidently drift report and uploads it as an artifact. |
 
@@ -211,6 +217,8 @@ Thresholds are defined in `configs/alerting.yaml`:
 | Data drift | 10% | Alert if above |
 
 The CI gate blocks the promotion of a model whose metrics fall below these thresholds. These thresholds intentionally stay on the **binary** contract (`good` vs any defect) so that CT and `test_regression.py` remain comparable across releases.
+
+The CT workflow uses its own tiny fixture (`data/mini_ref/`) and therefore its own smoke thresholds (`data/mini_ref/alerting.yaml`) and baseline (`data/mini_ref/baseline_metrics.json`). It also writes a dedicated `model_registry/ct/split.json`; the full-data `model_registry/split.json` is never overwritten by CT. `test_regression.py` additionally verifies that held-out files are disjoint from train/validation and that the metric count matches the held-out manifest.
 
 ### 📦 Model artefact versioning
 

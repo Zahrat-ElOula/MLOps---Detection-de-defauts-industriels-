@@ -1,0 +1,7 @@
+# Relaxed smoke-test thresholds for the tiny CT fixture.
+# They only catch a completely broken retraining run; the real quality gate
+# is configs/alerting.yaml on the full dataset.
+accuracy_threshold: 0.30
+f1_threshold: 0.30
+mAP_threshold: 0.30
+drift_threshold: 0.30

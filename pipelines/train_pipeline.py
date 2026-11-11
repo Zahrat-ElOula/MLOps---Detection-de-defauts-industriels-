@@ -43,6 +43,15 @@ def parse_args() -> argparse.Namespace:
         default=PROJECT_ROOT / "model_registry",
         help="Directory for checkpoints and metrics",
     )
+    parser.add_argument(
+        "--split-path",
+        type=Path,
+        default=None,
+        help=(
+            "Where to write the deterministic split manifest. "
+            "Defaults to <output-dir>/split.json."
+        ),
+    )
     parser.add_argument("--mlflow-uri", type=str, default=None)
     parser.add_argument("--experiment", type=str, default="industrial-defect-detection")
     parser.add_argument(
@@ -92,9 +101,18 @@ def main() -> int:
 
     logger.info(
         "Starting training",
-        extra={"params": params, "output_dir": str(args.output_dir)},
+        extra={
+            "params": params,
+            "output_dir": str(args.output_dir),
+            "split_path": str(args.split_path) if args.split_path else None,
+        },
     )
-    metrics = train(config, output_dir=args.output_dir, experiment_name=args.experiment)
+    metrics = train(
+        config,
+        output_dir=args.output_dir,
+        experiment_name=args.experiment,
+        split_path=args.split_path,
+    )
 
     metrics_path = Path(args.output_dir) / "train_metrics.json"
     metrics_path.parent.mkdir(parents=True, exist_ok=True)

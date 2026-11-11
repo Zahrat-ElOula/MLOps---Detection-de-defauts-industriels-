@@ -23,7 +23,9 @@ mlartifacts/
 # ONNX serving artefacts are versioned in Git (each < 100 MB per-file limit).
 # PyTorch checkpoints stay out of Git (DVC / local training output).
 model_registry/*.pt
+model_registry/**/*.pt
 model_registry/*.pth
+model_registry/**/*.pth
 model_registry/*.torchscript
 
 # Frontend

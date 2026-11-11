@@ -1,0 +1,6 @@
+{
+  "accuracy": 0.3,
+  "f1": 0.3,
+  "mAP": 0.3,
+  "note": "CT smoke gate for the tiny mini_ref dataset. The full-data quality baseline remains model_registry/baseline_metrics.json."
+}

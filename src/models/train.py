@@ -4,6 +4,10 @@ This module implements the full training loop (progressive fine-tuning,
 early stopping, checkpointing) and logs parameters, metrics and artefacts
 to MLflow. The number of classes is inferred from the MVTec test
 sub-directories and persisted to ``model_registry/classes.json``.
+
+The test split is deterministic and stratified.  Thirty percent of the test
+files are written to ``model_registry/split.json`` as the held-out set and are
+never used for training or validation.
 """
 
 from __future__ import annotations
@@ -14,49 +18,25 @@ from types import SimpleNamespace
 from typing import Any, Mapping
 
 from src.config import Config, PROJECT_ROOT
+from src.data.split import (
+    HOLDOUT_FRACTION,
+    SPLIT_SEED,
+    VAL_FRACTION,
+    build_split_manifest,
+    relative_path,
+    stratified_three_way_split,
+    write_split_manifest,
+)
 
 MODEL_REGISTRY_DIR = PROJECT_ROOT / "model_registry"
 
 
-def _stratified_split(
-    labels: list[int],
-    val_fraction: float = 0.3,
-    seed: int = 42,
-) -> tuple[list[int], list[int]]:
-    """Split indices, stratified on the class label when possible."""
-    import torch
-
-    n_samples = len(labels)
-    if n_samples < 2:
-        return list(range(n_samples)), []
-
-    n_val = max(1, int(round(val_fraction * n_samples)))
-    n_val = min(n_val, n_samples - 1)
-
-    try:
-        from collections import Counter
-
-        from sklearn.model_selection import train_test_split
-
-        if min(Counter(labels).values()) >= 2:
-            train_idx, val_idx = train_test_split(
-                list(range(n_samples)),
-                test_size=n_val,
-                stratify=labels,
-                random_state=seed,
-            )
-            return list(train_idx), list(val_idx)
-    except Exception:
-        pass
-
-    permutation = torch.randperm(
-        n_samples, generator=torch.Generator().manual_seed(seed)
-    ).tolist()
-    return permutation[n_val:], permutation[:n_val]
-
-
-def train(config, output_dir: Path | None = None,
-          experiment_name: str | None = None) -> dict:
+def train(
+    config,
+    output_dir: Path | None = None,
+    experiment_name: str | None = None,
+    split_path: Path | None = None,
+) -> dict:
     """Boucle d'entraînement complète avec MLflow."""
     import mlflow
     import numpy as np
@@ -98,8 +78,9 @@ def train(config, output_dir: Path | None = None,
     logger.info(f"Classes découvertes ({num_classes}) : {classes}")
 
     # 1. Datasets
-    # MVP supervisé : train = train/good + 70% de test/ (toutes classes).
-    # Val = 30% de test/ (split stratifié quand chaque classe a >= 2 images).
+    # Split déterministe : 30 % du test est mis de côté (held-out) et n'est
+    # utilisé ni pour l'entraînement ni pour la validation.  Le reste du test
+    # est réparti entre train et validation.
     good_train = MVTecDataset(
         root=data_root, category=config.category,
         split="train", transform=get_train_transforms(config.image_size),
@@ -111,10 +92,41 @@ def train(config, output_dir: Path | None = None,
         classes=classes,
     )
     test_labels = list(test_full.labels)
-    train_idx, val_idx = _stratified_split(test_labels)
+    train_idx, val_idx, heldout_idx = stratified_three_way_split(
+        test_labels,
+        seed=SPLIT_SEED,
+        holdout_fraction=HOLDOUT_FRACTION,
+        val_fraction=VAL_FRACTION,
+    )
     if not val_idx and train_idx:
+        # Très petits jeux de données : garder au moins un échantillon de
+        # validation, sans jamais toucher au held-out.
         val_idx = train_idx[-1:]
         train_idx = train_idx[:-1]
+
+    logger.info(
+        "Split déterministe (seed=%d) : train=%d val=%d held-out=%d (jamais vus)",
+        SPLIT_SEED,
+        len(train_idx),
+        len(val_idx),
+        len(heldout_idx),
+    )
+
+    split_manifest = build_split_manifest(
+        test_full.samples,
+        test_labels,
+        classes,
+        train_idx,
+        val_idx,
+        heldout_idx,
+        seed=SPLIT_SEED,
+        holdout_fraction=HOLDOUT_FRACTION,
+        val_fraction=VAL_FRACTION,
+    )
+    split_file = write_split_manifest(
+        split_manifest, split_path or (output_dir / "split.json")
+    )
+    logger.info("Split manifest écrit : %s", split_file)
 
     train_ds = ConcatDataset([good_train, Subset(test_full, train_idx)])
     val_ds = Subset(test_full, val_idx)
@@ -164,6 +176,8 @@ def train(config, output_dir: Path | None = None,
             "classes": ",".join(classes),
             "num_train": len(train_loader.dataset),
             "num_val": len(val_loader.dataset),
+            "num_held_out": len(heldout_idx),
+            "split_seed": SPLIT_SEED,
         })
 
         best_val_loss = float("inf")
@@ -243,6 +257,9 @@ def train(config, output_dir: Path | None = None,
             "classes": list(classes),
             "num_classes": num_classes,
             "class_weights": class_weights.tolist(),
+            "split_path": relative_path(split_file),
+            "split_seed": SPLIT_SEED,
+            "num_held_out": len(heldout_idx),
             **metrics,
             "history": history,
         }
@@ -251,6 +268,7 @@ def train(config, output_dir: Path | None = None,
         )
         mlflow.log_artifact(str(output_dir / "train_metrics.json"))
         mlflow.log_artifact(str(classes_path))
+        mlflow.log_artifact(str(split_file))
         mlflow.log_artifact(str(output_dir / "model.pt"))
 
     return payload

@@ -1,13 +1,17 @@
 """Evaluation metrics and baseline comparison.
 
-The functions below define the contract used by the regression tests and the
-CT workflow. Binary metrics (``good`` vs any defect) remain the quality-gate
-contract, while multi-class metrics (defect type) are reported alongside.
-Localisation (boxes/masks) is intentionally out of scope for this MVP.
+Evaluation is restricted to the files listed in the training split manifest
+(``model_registry/split.json`` by default).  These files form the strict
+held-out test set and are never passed to training or validation.
+
+Binary metrics (``good`` vs any defect) remain the quality-gate contract,
+while multi-class metrics (defect type) are reported alongside. Localisation
+(boxes/masks) is intentionally out of scope for this MVP.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import numbers
 from pathlib import Path
@@ -17,9 +21,17 @@ import numpy as np
 import yaml
 
 from src.config import PROJECT_ROOT, Config
+from src.data.split import (
+    held_out_files,
+    load_split_manifest,
+    relative_path,
+    resolve_manifest_path,
+    validate_manifest_files,
+)
 
 MODEL_REGISTRY_DIR = PROJECT_ROOT / "model_registry"
 REPORTS_DIR = PROJECT_ROOT / "reports"
+NON_METRIC_KEYS = {"eval_scope", "num_test_images", "split_seed"}
 
 
 def compute_classification_metrics(y_true, y_pred, average: str | None = None) -> dict:
@@ -168,7 +180,7 @@ def compare_with_baseline(
     improvements: list[dict[str, Any]] = []
 
     for metric, new_value in metrics.items():
-        if metric not in baseline:
+        if metric in NON_METRIC_KEYS or metric not in baseline:
             continue
 
         old_value = baseline[metric]
@@ -202,28 +214,34 @@ def compare_with_baseline(
     }
 
 
-def check_alerts(metrics: dict, config: Config) -> list[str]:
+def check_alerts(
+    metrics: dict,
+    config: Config,
+    alerting_path: str | Path | None = None,
+) -> list[str]:
     """Compare metrics with alert thresholds and return a list of alerts."""
-    alerting_path = PROJECT_ROOT / "configs" / "alerting.yaml"
-    if not alerting_path.is_file():
+    path = Path(alerting_path) if alerting_path else getattr(
+        config, "alerting_path", PROJECT_ROOT / "configs" / "alerting.yaml"
+    )
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    if not path.is_file():
         return []
 
-    with alerting_path.open("r", encoding="utf-8") as handle:
-        thresholds = yaml.safe_load(handle)
+    with path.open("r", encoding="utf-8") as handle:
+        thresholds = yaml.safe_load(handle) or {}
 
     alerts = []
-    if metrics["accuracy"] < thresholds.get("accuracy_threshold", 0):
-        alerts.append(
-            f"Accuracy ({metrics['accuracy']:.2f}) < seuil ({thresholds['accuracy_threshold']})"
-        )
-    if metrics["f1"] < thresholds.get("f1_threshold", 0):
-        alerts.append(
-            f"F1 ({metrics['f1']:.2f}) < seuil ({thresholds['f1_threshold']})"
-        )
-    if metrics["mAP"] < thresholds.get("mAP_threshold", 0):
-        alerts.append(
-            f"mAP ({metrics['mAP']:.2f}) < seuil ({thresholds['mAP_threshold']})"
-        )
+    for metric, threshold_key in (
+        ("accuracy", "accuracy_threshold"),
+        ("f1", "f1_threshold"),
+        ("mAP", "mAP_threshold"),
+    ):
+        threshold = float(thresholds.get(threshold_key, 0))
+        if metrics.get(metric, 0.0) < threshold:
+            alerts.append(
+                f"{metric} ({metrics[metric]:.2f}) < seuil ({threshold})"
+            )
 
     return alerts
 
@@ -239,19 +257,142 @@ def _load_class_names(path: Path) -> tuple[str, ...]:
     return names if len(names) >= 2 else ("good", "defect")
 
 
-def main() -> None:
-    """CLI entry point used by ``dvc.yaml`` and CI."""
+class _HeldOutDataset:
+    """Minimal dataset backed by the explicit file list from ``split.json``."""
+
+    def __init__(
+        self,
+        files: Sequence[str | Path],
+        classes: Sequence[str],
+        transform: Any,
+        *,
+        root: Path = PROJECT_ROOT,
+    ) -> None:
+        self.files = [resolve_manifest_path(item, root=root) for item in files]
+        self.classes = tuple(classes)
+        self.transform = transform
+        class_to_index = {name: index for index, name in enumerate(self.classes)}
+        self.labels: list[int] = []
+
+        for path in self.files:
+            class_name = path.parent.name
+            if class_name not in class_to_index:
+                raise ValueError(
+                    "Cannot infer the class of held-out file "
+                    f"{path}: parent folder '{class_name}' is not in classes.json "
+                    f"({list(self.classes)})."
+                )
+            self.labels.append(class_to_index[class_name])
+
+    def __len__(self) -> int:
+        return len(self.files)
+
+    def __getitem__(self, index: int) -> tuple[Any, int]:
+        from PIL import Image
+
+        image = Image.open(self.files[index]).convert("RGB")
+        if self.transform is not None:
+            image = self.transform(image=np.asarray(image))["image"]
+        return image, self.labels[index]
+
+
+def _resolve_cli_path(value: str | Path) -> Path:
+    """Resolve a CLI path relative to the repository root."""
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return path.resolve()
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse evaluation CLI arguments."""
+    parser = argparse.ArgumentParser(
+        description="Evaluate the model on the strict held-out test split."
+    )
+    parser.add_argument(
+        "--model-dir",
+        type=Path,
+        default=MODEL_REGISTRY_DIR,
+        help="Directory containing model.pt and classes.json (default: model_registry).",
+    )
+    parser.add_argument(
+        "--split-path",
+        type=Path,
+        default=None,
+        help="Split manifest written by training (default: <model-dir>/split.json).",
+    )
+    parser.add_argument(
+        "--metrics-path",
+        type=Path,
+        default=None,
+        help="Output metrics JSON (default: <model-dir>/test_metrics.json).",
+    )
+    parser.add_argument(
+        "--baseline-path",
+        type=Path,
+        default=None,
+        help="Baseline metrics JSON (default: <model-dir>/baseline_metrics.json).",
+    )
+    parser.add_argument(
+        "--alerting-path",
+        type=Path,
+        default=None,
+        help="Alert thresholds YAML (default: configs/alerting.yaml).",
+    )
+    parser.add_argument(
+        "--no-update-baseline",
+        action="store_true",
+        help="Compare against the baseline without overwriting it.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """CLI entry point used by ``dvc.yaml``, CI and the CT workflow."""
     import torch
     from torch.utils.data import DataLoader
 
     from src.data.augmentations import get_val_transforms
-    from src.data.dataset import MVTecDataset, discover_classes
+    from src.data.dataset import discover_classes
     from src.models.build import build_model
     from src.utils.logger import configure_logging, get_logger
 
     configure_logging()
     logger = get_logger(__name__)
-    config = Config.load()
+    args = parse_args(argv)
+
+    model_dir = _resolve_cli_path(args.model_dir)
+    split_path = (
+        _resolve_cli_path(args.split_path)
+        if args.split_path is not None
+        else model_dir / "split.json"
+    )
+    metrics_path = (
+        _resolve_cli_path(args.metrics_path)
+        if args.metrics_path is not None
+        else model_dir / "test_metrics.json"
+    )
+    baseline_path = (
+        _resolve_cli_path(args.baseline_path)
+        if args.baseline_path is not None
+        else model_dir / "baseline_metrics.json"
+    )
+    alerting_path = (
+        _resolve_cli_path(args.alerting_path)
+        if args.alerting_path is not None
+        else None
+    )
+    config = Config.load(alerting_path=alerting_path) if alerting_path else Config.load()
+
+    # The held-out manifest is mandatory: never fall back to the full test set.
+    manifest = load_split_manifest(split_path)
+    held_out = held_out_files(manifest)
+    validate_manifest_files(manifest)
+    logger.info(
+        "Évaluation strictement sur le split held-out : %d image(s) (%s)",
+        len(held_out),
+        split_path,
+    )
 
     required_params = ("data_root", "category")
     missing_params = [key for key in required_params if not config.get(key)]
@@ -271,14 +412,25 @@ def main() -> None:
     else:
         device = torch.device(device_name)
 
-    classes_path = MODEL_REGISTRY_DIR / "classes.json"
+    classes_path = model_dir / "classes.json"
     if classes_path.is_file():
         classes = _load_class_names(classes_path)
     else:
         classes = tuple(discover_classes(data_root, str(config.get("category"))))
     good_index = classes.index("good") if "good" in classes else 0
 
-    model_path = MODEL_REGISTRY_DIR / "model.pt"
+    manifest_classes = manifest.get("classes")
+    if manifest_classes and list(manifest_classes) != list(classes):
+        logger.warning(
+            "Classes du split %s différentes de classes.json %s",
+            manifest_classes,
+            list(classes),
+        )
+
+    model_path = model_dir / "model.pt"
+    if not model_path.is_file():
+        raise FileNotFoundError(f"Model checkpoint not found: {model_path}")
+
     model = build_model(
         str(config.get("model_name", "resnet50")),
         num_classes=len(classes),
@@ -288,12 +440,10 @@ def main() -> None:
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
-    test_ds = MVTecDataset(
-        root=data_root,
-        category=str(config.get("category")),
-        split="test",
-        transform=get_val_transforms(int(config.get("image_size", 224))),
-        classes=classes,
+    test_ds = _HeldOutDataset(
+        held_out,
+        classes,
+        get_val_transforms(int(config.get("image_size", 224))),
     )
     test_loader = DataLoader(
         test_ds,
@@ -315,11 +465,25 @@ def main() -> None:
             labels.extend(batch_labels.cpu().tolist())
             scores.extend((1.0 - probabilities[:, good_index]).cpu().tolist())
 
+    if len(labels) != len(held_out):
+        raise RuntimeError(
+            f"Evaluated {len(labels)} images but split.json lists {len(held_out)}."
+        )
+
     binary_labels = [0 if label == good_index else 1 for label in labels]
     binary_predictions = [0 if pred == good_index else 1 for pred in predictions]
 
     metrics = compute_classification_metrics(binary_labels, binary_predictions)
-    metrics.update(compute_detection_metrics(binary_labels, scores))
+    if len(set(binary_labels)) < 2:
+        # mAP/AUROC are undefined with a single class in a very small split.
+        metrics.update({"mAP": 0.0, "auroc": 0.0, "iou_threshold": 0.5})
+        logger.warning(
+            "Le split held-out ne contient qu'une seule classe binaire; "
+            "mAP/AUROC fixés à 0.0."
+        )
+    else:
+        metrics.update(compute_detection_metrics(binary_labels, scores))
+
     multiclass = compute_multiclass_metrics(labels, predictions, classes)
     metrics.update({
         "multiclass_accuracy": multiclass["accuracy"],
@@ -329,6 +493,8 @@ def main() -> None:
         "multiclass_confusion_matrix": multiclass["confusion_matrix"],
         "per_class_f1": multiclass["per_class_f1"],
         "classes": list(classes),
+        "num_test_images": len(held_out),
+        "eval_scope": "held_out_only",
     })
 
     csv_path, png_path = save_confusion_matrix(
@@ -337,26 +503,46 @@ def main() -> None:
     logger.info("Confusion matrix CSV: %s", csv_path)
     logger.info("Confusion matrix PNG: %s", png_path)
 
-    baseline_path = MODEL_REGISTRY_DIR / "baseline_metrics.json"
     baseline: dict[str, Any] = {}
     if baseline_path.is_file():
         with baseline_path.open("r", encoding="utf-8") as handle:
             baseline = json.load(handle)
 
-    comparison = compare_with_baseline(metrics, baseline)
-    payload = {"metrics": metrics, "comparison": comparison}
+    if (
+        not args.no_update_baseline
+        and baseline
+        and baseline.get("eval_scope") != "held_out_only"
+    ):
+        logger.warning(
+            "Baseline existante non calculée sur le split held-out; "
+            "elle sera remplacée par la nouvelle baseline stricte."
+        )
+        baseline = {}
 
-    test_metrics_path = MODEL_REGISTRY_DIR / "test_metrics.json"
-    with test_metrics_path.open("w", encoding="utf-8") as handle:
+    comparison = compare_with_baseline(metrics, baseline)
+    payload = {
+        "metrics": metrics,
+        "comparison": comparison,
+        "split": {
+            "path": relative_path(split_path),
+            "seed": manifest.get("seed"),
+            "num_test_images": len(held_out),
+            "counts": manifest.get("counts", {}),
+        },
+    }
+
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    with metrics_path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, default=float)
 
-    if not baseline or comparison["passed"]:
+    if not args.no_update_baseline and (not baseline or comparison["passed"]):
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
         with baseline_path.open("w", encoding="utf-8") as handle:
             json.dump(metrics, handle, indent=2, default=float)
         logger.info("Baseline updated: %s", baseline_path)
 
     # --- Vérification des alertes de performance ---
-    alerts = check_alerts(metrics, config)
+    alerts = check_alerts(metrics, config, alerting_path)
     if alerts:
         logger.warning("ALERTE : Chute de performance détectée !")
         for alert in alerts:
@@ -373,6 +559,7 @@ def main() -> None:
     else:
         logger.info("Aucune alerte : toutes les métriques sont au-dessus des seuils.")
 
+    logger.info("Nombre d'images évaluées (held-out): %d", len(held_out))
     logger.info("Evaluation metrics: %s", metrics)
     logger.info("Multi-class metrics: %s", multiclass)
     logger.info("Comparison with baseline: %s", comparison)

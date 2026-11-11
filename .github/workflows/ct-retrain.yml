@@ -60,10 +60,22 @@ jobs:
         if: steps.check.outputs.run == 'true'
         run: |
           # Minimal MVTec layout expected by MVTecDataset.
+          rm -rf data/raw/bottle model_registry/ct
           mkdir -p data/raw/bottle/train/good
           mkdir -p data/raw/bottle/test/good
-          cp data/mini_ref/good/*.png data/raw/bottle/train/good/ 2>/dev/null || true
-          cp data/mini_ref/good/*.png data/raw/bottle/test/good/ 2>/dev/null || true
+
+          # Keep train/good and test/good disjoint: copying the same good
+          # images to both would leak held-out files into training.
+          i=0
+          for f in data/mini_ref/good/*.png; do
+            [ -e "$f" ] || continue
+            i=$((i + 1))
+            if [ "$i" -le 3 ]; then
+              cp "$f" data/raw/bottle/train/good/
+            else
+              cp "$f" data/raw/bottle/test/good/
+            fi
+          done
 
           # One reference folder per defect type.
           for cls in broken_large broken_small contamination; do
@@ -93,16 +105,37 @@ jobs:
 
           find data/raw/bottle -maxdepth 3 -type f | sort | head -20
 
-      - name: Retrain model
+      - name: Retrain model with a dedicated CT split
         if: steps.check.outputs.run == 'true'
-        run: python pipelines/train_pipeline.py --params configs/params.yaml --override epochs=2
+        run: |
+          python pipelines/train_pipeline.py \
+            --params configs/params.yaml \
+            --output-dir model_registry/ct \
+            --split-path model_registry/ct/split.json \
+            --override epochs=2
 
-      - name: Evaluate retrained model
+      - name: Evaluate retrained model on held-out CT split
         if: steps.check.outputs.run == 'true'
-        run: python -m src.models.evaluate
+        run: |
+          python -m src.models.evaluate \
+            --model-dir model_registry/ct \
+            --split-path model_registry/ct/split.json \
+            --metrics-path model_registry/ct/test_metrics.json \
+            --baseline-path data/mini_ref/baseline_metrics.json \
+            --alerting-path data/mini_ref/alerting.yaml \
+            --no-update-baseline
 
       - name: Non-regression tests
         if: steps.check.outputs.run == 'true'
+        env:
+          MODEL_DIR: model_registry/ct
+          SPLIT_PATH: model_registry/ct/split.json
+          CURRENT_METRICS_PATH: model_registry/ct/test_metrics.json
+          BASELINE_PATH: data/mini_ref/baseline_metrics.json
+          ALERTING_PATH: data/mini_ref/alerting.yaml
+          CLASSES_PATH: model_registry/ct/classes.json
+          REQUIRE_SPLIT_MANIFEST: "1"
+          REQUIRE_SPLIT_METRICS: "1"
         run: pytest tests/test_regression.py -v --maxfail=1
 
       - name: Upload run artefacts
@@ -111,7 +144,7 @@ jobs:
         with:
           name: retrain-artifacts
           path: |
-            model_registry/
+            model_registry/ct/
             reports/
           retention-days: 14
 
@@ -120,9 +153,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add model_registry/baseline_metrics.json \
-                  model_registry/test_metrics.json \
-                  model_registry/train_metrics.json \
-                  model_registry/classes.json
+          git add model_registry/ct/classes.json \
+                  model_registry/ct/split.json \
+                  model_registry/ct/train_metrics.json \
+                  model_registry/ct/test_metrics.json
           git diff --cached --quiet || git commit -m "ct: retrain model on new data [skip ci]"
           git push
