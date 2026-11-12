@@ -9,9 +9,9 @@
     "contamination"
   ],
   "counts": {
-    "test": 10,
+    "test": 11,
     "train": 5,
-    "val": 1,
+    "val": 2,
     "held_out": 4
   },
   "held_out": [
@@ -28,6 +28,7 @@
     "data/raw/bottle/test/good/20261111_200353_004.png"
   ],
   "val": [
+    "data/raw/bottle/test/broken_small/20261111_230221_155845_004.png",
     "data/raw/bottle/test/good/20261111_201118_019.png"
   ]
 }

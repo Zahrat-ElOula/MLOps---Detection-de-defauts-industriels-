@@ -14,8 +14,8 @@
         2
       ]
     ],
-    "mAP": 0.6388888888888888,
-    "auroc": 0.0,
+    "mAP": 0.9166666666666665,
+    "auroc": 0.6666666666666666,
     "iou_threshold": 0.5,
     "multiclass_accuracy": 0.25,
     "multiclass_f1_macro": 0.125,
@@ -25,33 +25,33 @@
       [
         0,
         0,
-        1,
-        0
-      ],
-      [
         0,
-        0,
-        1,
-        0
-      ],
-      [
-        0,
-        0,
-        1,
-        0
+        1
       ],
       [
         1,
         0,
         0,
         0
+      ],
+      [
+        0,
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        0,
+        1
       ]
     ],
     "per_class_f1": {
       "good": 0.0,
       "broken_large": 0.0,
-      "broken_small": 0.5,
-      "contamination": 0.0
+      "broken_small": 0.0,
+      "contamination": 0.5
     },
     "classes": [
       "good",
@@ -81,8 +81,8 @@
       {
         "metric": "mAP",
         "old": 0.3,
-        "new": 0.6388888888888888,
-        "delta": 0.33888888888888885
+        "new": 0.9166666666666665,
+        "delta": 0.6166666666666665
       }
     ]
   },
@@ -91,9 +91,9 @@
     "seed": 42,
     "num_test_images": 4,
     "counts": {
-      "test": 10,
+      "test": 11,
       "train": 5,
-      "val": 1,
+      "val": 2,
       "held_out": 4
     }
   }
