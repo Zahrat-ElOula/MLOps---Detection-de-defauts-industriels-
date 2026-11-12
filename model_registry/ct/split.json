@@ -9,26 +9,29 @@
     "contamination"
   ],
   "counts": {
-    "test": 11,
-    "train": 5,
+    "test": 14,
+    "train": 7,
     "val": 2,
-    "held_out": 4
+    "held_out": 5
   },
   "held_out": [
     "data/raw/bottle/test/broken_large/000.png",
-    "data/raw/bottle/test/broken_small/000.png",
-    "data/raw/bottle/test/contamination/000.png",
+    "data/raw/bottle/test/broken_small/001.png",
+    "data/raw/bottle/test/broken_small/20261112_204211_860111_002.png",
+    "data/raw/bottle/test/contamination/001.png",
     "data/raw/bottle/test/good/003.png"
   ],
   "train": [
     "data/raw/bottle/test/broken_large/001.png",
-    "data/raw/bottle/test/broken_small/001.png",
-    "data/raw/bottle/test/contamination/001.png",
+    "data/raw/bottle/test/broken_small/20261111_230221_155845_004.png",
+    "data/raw/bottle/test/broken_small/20261112_204207_933913_002.png",
+    "data/raw/bottle/test/broken_small/20261112_204209_944082_002.png",
+    "data/raw/bottle/test/contamination/000.png",
     "data/raw/bottle/test/good/004.png",
     "data/raw/bottle/test/good/20261111_200353_004.png"
   ],
   "val": [
-    "data/raw/bottle/test/broken_small/20261111_230221_155845_004.png",
+    "data/raw/bottle/test/broken_small/000.png",
     "data/raw/bottle/test/good/20261111_201118_019.png"
   ]
 }
