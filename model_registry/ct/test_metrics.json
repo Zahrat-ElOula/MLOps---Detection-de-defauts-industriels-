@@ -1,57 +1,57 @@
 {
   "metrics": {
-    "accuracy": 0.75,
-    "precision": 0.75,
-    "recall": 1.0,
-    "f1": 0.8571428571428571,
+    "accuracy": 0.5,
+    "precision": 0.6666666666666666,
+    "recall": 0.6666666666666666,
+    "f1": 0.6666666666666666,
     "confusion_matrix": [
       [
         0,
         1
       ],
       [
-        0,
-        3
+        1,
+        2
       ]
     ],
-    "mAP": 0.8055555555555556,
-    "auroc": 0.3333333333333333,
+    "mAP": 0.9166666666666665,
+    "auroc": 0.6666666666666666,
     "iou_threshold": 0.5,
     "multiclass_accuracy": 0.25,
-    "multiclass_f1_macro": 0.1,
-    "multiclass_precision_macro": 0.0625,
+    "multiclass_f1_macro": 0.125,
+    "multiclass_precision_macro": 0.08333333333333333,
     "multiclass_recall_macro": 0.25,
     "multiclass_confusion_matrix": [
       [
         0,
         0,
+        0,
+        1
+      ],
+      [
         1,
+        0,
+        0,
         0
       ],
       [
         0,
         0,
-        1,
-        0
+        0,
+        1
       ],
       [
         0,
         0,
-        1,
-        0
-      ],
-      [
         0,
-        0,
-        1,
-        0
+        1
       ]
     ],
     "per_class_f1": {
       "good": 0.0,
       "broken_large": 0.0,
-      "broken_small": 0.4,
-      "contamination": 0.0
+      "broken_small": 0.0,
+      "contamination": 0.5
     },
     "classes": [
       "good",
@@ -69,20 +69,20 @@
       {
         "metric": "accuracy",
         "old": 0.3,
-        "new": 0.75,
-        "delta": 0.45
+        "new": 0.5,
+        "delta": 0.2
       },
       {
         "metric": "f1",
         "old": 0.3,
-        "new": 0.8571428571428571,
-        "delta": 0.5571428571428572
+        "new": 0.6666666666666666,
+        "delta": 0.36666666666666664
       },
       {
         "metric": "mAP",
         "old": 0.3,
-        "new": 0.8055555555555556,
-        "delta": 0.5055555555555555
+        "new": 0.9166666666666665,
+        "delta": 0.6166666666666665
       }
     ]
   },
@@ -91,9 +91,9 @@
     "seed": 42,
     "num_test_images": 4,
     "counts": {
-      "test": 10,
+      "test": 11,
       "train": 5,
-      "val": 1,
+      "val": 2,
       "held_out": 4
     }
   }
