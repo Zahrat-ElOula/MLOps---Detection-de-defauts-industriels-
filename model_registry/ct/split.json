@@ -9,29 +9,38 @@
     "contamination"
   ],
   "counts": {
-    "test": 14,
-    "train": 7,
-    "val": 2,
-    "held_out": 5
+    "test": 23,
+    "train": 11,
+    "val": 4,
+    "held_out": 8
   },
   "held_out": [
     "data/raw/bottle/test/broken_large/000.png",
     "data/raw/bottle/test/broken_small/001.png",
-    "data/raw/bottle/test/broken_small/20261112_204211_860111_002.png",
+    "data/raw/bottle/test/broken_small/20261111_230221_155845_004.png",
+    "data/raw/bottle/test/broken_small/20261112_204207_933913_002.png",
+    "data/raw/bottle/test/broken_small/20261113_214152_605279_000.png",
+    "data/raw/bottle/test/contamination/000.png",
     "data/raw/bottle/test/contamination/001.png",
     "data/raw/bottle/test/good/003.png"
   ],
   "train": [
     "data/raw/bottle/test/broken_large/001.png",
-    "data/raw/bottle/test/broken_small/20261111_230221_155845_004.png",
-    "data/raw/bottle/test/broken_small/20261112_204207_933913_002.png",
-    "data/raw/bottle/test/broken_small/20261112_204209_944082_002.png",
-    "data/raw/bottle/test/contamination/000.png",
+    "data/raw/bottle/test/broken_small/000.png",
+    "data/raw/bottle/test/broken_small/20261112_204211_860111_002.png",
+    "data/raw/bottle/test/broken_small/20261113_214150_200944_000.png",
+    "data/raw/bottle/test/broken_small/20261113_214151_293708_000.png",
+    "data/raw/bottle/test/broken_small/20261113_214220_185840_000.png",
+    "data/raw/bottle/test/broken_small/20261113_214224_194914_000.png",
+    "data/raw/bottle/test/contamination/20261113_214131_764664_002.png",
+    "data/raw/bottle/test/contamination/20261113_214133_870204_002.png",
     "data/raw/bottle/test/good/004.png",
     "data/raw/bottle/test/good/20261111_200353_004.png"
   ],
   "val": [
-    "data/raw/bottle/test/broken_small/000.png",
+    "data/raw/bottle/test/broken_small/20261112_204209_944082_002.png",
+    "data/raw/bottle/test/broken_small/20261113_214219_414310_000.png",
+    "data/raw/bottle/test/contamination/20261113_214127_727910_002.png",
     "data/raw/bottle/test/good/20261111_201118_019.png"
   ]
 }
