@@ -1,42 +1,30 @@
 {
   "metrics": {
-    "accuracy": 0.875,
-    "precision": 0.875,
-    "recall": 1.0,
-    "f1": 0.9333333333333333,
+    "accuracy": 0.45454545454545453,
+    "precision": 0.6666666666666666,
+    "recall": 0.5,
+    "f1": 0.5714285714285714,
     "confusion_matrix": [
       [
-        0,
-        1
+        1,
+        2
       ],
       [
-        0,
-        7
+        4,
+        4
       ]
     ],
-    "mAP": 0.8736394557823131,
-    "auroc": 0.2857142857142857,
+    "mAP": 0.6773538961038961,
+    "auroc": 0.33333333333333337,
     "iou_threshold": 0.5,
-    "multiclass_accuracy": 0.25,
-    "multiclass_f1_macro": 0.18333333333333335,
-    "multiclass_precision_macro": 0.13333333333333333,
-    "multiclass_recall_macro": 0.375,
+    "multiclass_accuracy": 0.18181818181818182,
+    "multiclass_f1_macro": 0.22916666666666666,
+    "multiclass_precision_macro": 0.175,
+    "multiclass_recall_macro": 0.3333333333333333,
     "multiclass_confusion_matrix": [
       [
-        0,
         1,
         0,
-        0
-      ],
-      [
-        0,
-        1,
-        0,
-        0
-      ],
-      [
-        0,
-        2,
         0,
         2
       ],
@@ -44,14 +32,26 @@
         0,
         1,
         0,
-        1
+        0
+      ],
+      [
+        2,
+        0,
+        0,
+        2
+      ],
+      [
+        2,
+        1,
+        0,
+        0
       ]
     ],
     "per_class_f1": {
-      "good": 0.0,
-      "broken_large": 0.3333333333333333,
+      "good": 0.25,
+      "broken_large": 0.6666666666666666,
       "broken_small": 0.0,
-      "contamination": 0.4
+      "contamination": 0.0
     },
     "classes": [
       "good",
@@ -59,7 +59,7 @@
       "broken_small",
       "contamination"
     ],
-    "num_test_images": 8,
+    "num_test_images": 11,
     "eval_scope": "held_out_only"
   },
   "comparison": {
@@ -69,32 +69,32 @@
       {
         "metric": "accuracy",
         "old": 0.25,
-        "new": 0.875,
-        "delta": 0.625
+        "new": 0.45454545454545453,
+        "delta": 0.20454545454545453
       },
       {
         "metric": "f1",
         "old": 0.0,
-        "new": 0.9333333333333333,
-        "delta": 0.9333333333333333
+        "new": 0.5714285714285714,
+        "delta": 0.5714285714285714
       },
       {
         "metric": "mAP",
         "old": 0.0,
-        "new": 0.8736394557823131,
-        "delta": 0.8736394557823131
+        "new": 0.6773538961038961,
+        "delta": 0.6773538961038961
       }
     ]
   },
   "split": {
     "path": "model_registry/ct/split.json",
     "seed": 42,
-    "num_test_images": 8,
+    "num_test_images": 11,
     "counts": {
-      "test": 23,
-      "train": 11,
-      "val": 4,
-      "held_out": 8
+      "test": 34,
+      "train": 17,
+      "val": 6,
+      "held_out": 11
     }
   }
 }
