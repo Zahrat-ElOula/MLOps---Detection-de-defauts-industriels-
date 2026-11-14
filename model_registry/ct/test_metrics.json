@@ -91,8 +91,8 @@
     "seed": 42,
     "num_test_images": 11,
     "counts": {
-      "test": 35,
-      "train": 17,
+      "test": 36,
+      "train": 18,
       "val": 7,
       "held_out": 11
     }
