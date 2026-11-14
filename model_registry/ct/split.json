@@ -9,49 +9,51 @@
     "contamination"
   ],
   "counts": {
-    "test": 34,
+    "test": 36,
     "train": 17,
-    "val": 6,
-    "held_out": 11
+    "val": 7,
+    "held_out": 12
   },
   "held_out": [
-    "data/raw/bottle/test/broken_large/001.png",
+    "data/raw/bottle/test/broken_large/000.png",
     "data/raw/bottle/test/broken_small/000.png",
     "data/raw/bottle/test/broken_small/001.png",
     "data/raw/bottle/test/broken_small/20261112_204207_933913_002.png",
-    "data/raw/bottle/test/broken_small/20261113_214224_194914_000.png",
-    "data/raw/bottle/test/contamination/20261113_214131_764664_002.png",
+    "data/raw/bottle/test/broken_small/20261113_214219_414310_000.png",
+    "data/raw/bottle/test/contamination/000.png",
     "data/raw/bottle/test/contamination/20261113_214133_870204_002.png",
-    "data/raw/bottle/test/contamination/20261114_183057_941112_000.png",
+    "data/raw/bottle/test/contamination/20261114_183055_819290_000.png",
     "data/raw/bottle/test/good/003.png",
     "data/raw/bottle/test/good/004.png",
+    "data/raw/bottle/test/good/20261114_182236_704389_capture.jpg",
     "data/raw/bottle/test/good/20261114_184336_889299_capture.jpg"
   ],
   "train": [
-    "data/raw/bottle/test/broken_large/000.png",
+    "data/raw/bottle/test/broken_large/001.png",
     "data/raw/bottle/test/broken_small/20261111_230221_155845_004.png",
     "data/raw/bottle/test/broken_small/20261112_204211_860111_002.png",
     "data/raw/bottle/test/broken_small/20261113_214150_200944_000.png",
     "data/raw/bottle/test/broken_small/20261113_214151_293708_000.png",
-    "data/raw/bottle/test/broken_small/20261113_214219_414310_000.png",
+    "data/raw/bottle/test/broken_small/20261113_214152_605279_000.png",
     "data/raw/bottle/test/broken_small/20261113_214220_185840_000.png",
-    "data/raw/bottle/test/contamination/001.png",
+    "data/raw/bottle/test/contamination/20261113_214127_727910_002.png",
     "data/raw/bottle/test/contamination/20261114_183054_987500_000.png",
-    "data/raw/bottle/test/contamination/20261114_183055_819290_000.png",
+    "data/raw/bottle/test/contamination/20261114_183057_941112_000.png",
     "data/raw/bottle/test/contamination/20261114_183058_160912_000.png",
     "data/raw/bottle/test/good/20261111_200353_004.png",
-    "data/raw/bottle/test/good/20261111_201118_019.png",
     "data/raw/bottle/test/good/20261114_182238_018092_capture.jpg",
     "data/raw/bottle/test/good/20261114_182239_079050_capture.jpg",
     "data/raw/bottle/test/good/20261114_182239_241975_capture.jpg",
-    "data/raw/bottle/test/good/20261114_182239_406538_capture.jpg"
+    "data/raw/bottle/test/good/20261114_184335_584208_capture.jpg",
+    "data/raw/bottle/test/good/20261114_191838_536867_Video_bottle.png"
   ],
   "val": [
     "data/raw/bottle/test/broken_small/20261112_204209_944082_002.png",
-    "data/raw/bottle/test/broken_small/20261113_214152_605279_000.png",
-    "data/raw/bottle/test/contamination/000.png",
-    "data/raw/bottle/test/contamination/20261113_214127_727910_002.png",
-    "data/raw/bottle/test/good/20261114_182236_704389_capture.jpg",
-    "data/raw/bottle/test/good/20261114_184335_584208_capture.jpg"
+    "data/raw/bottle/test/broken_small/20261113_214224_194914_000.png",
+    "data/raw/bottle/test/contamination/001.png",
+    "data/raw/bottle/test/contamination/20261113_214131_764664_002.png",
+    "data/raw/bottle/test/good/20261111_201118_019.png",
+    "data/raw/bottle/test/good/20261114_182239_406538_capture.jpg",
+    "data/raw/bottle/test/good/20261114_191837_240841_Video_bottle.png"
   ]
 }
