@@ -80,6 +80,9 @@ def read_drift_share(result: dict) -> float | None:
 
 
 def load_threshold() -> float:
+    env_value = os.environ.get("DRIFT_THRESHOLD")
+    if env_value:
+        return float(env_value)
     if not ALERTING_PATH.is_file():
         print(f"ATTENTION : {ALERTING_PATH} introuvable, seuil par défaut = {DEFAULT_THRESHOLD}")
         return DEFAULT_THRESHOLD
