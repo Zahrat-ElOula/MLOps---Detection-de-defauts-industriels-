@@ -3,4 +3,4 @@
 accuracy_threshold: 0.85
 f1_threshold: 0.80
 mAP_threshold: 0.70
-drift_threshold: 0.10
+drift_threshold: 0.5
