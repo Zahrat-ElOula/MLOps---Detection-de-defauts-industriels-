@@ -27,8 +27,7 @@
 [📦 Getting Started](#-getting-started) •
 [🚀 Usage](#-usage) •
 [🧠 Deep Learning](#-deep-learning-pipeline) •
-[⚙️ MLOps](#️-mlops-pipeline) •
-[⚠️ Limitations](#️-known-limitations)
+[⚙️ MLOps](#️-mlops-pipeline) 
 
 </div>
 
