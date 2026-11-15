@@ -328,17 +328,5 @@ All classifier metrics are computed on the **25 held-out images** listed in `mod
 
 The multi-class confusion matrix is saved to `reports/figures/confusion_matrix.csv` and `reports/figures/confusion_matrix.png`. With 25 images, one image is worth 4 points: differences between two models must be large to be meaningful.
 
-## ⚠️ Known limitations
-
-- **Small evaluation set**: 25 held-out images (95 % interval for the 80 % four-class accuracy: about 61 to 91 %).
-- **Closed taxonomy**: trained on the bottle category only, with no `unknown` class; an out-of-domain image (for example a toothbrush) still receives one of the four bottle classes.
-- **Detector quality**: the mask-to-box conversion keeps one box per image, all categories are merged into one `defect` class, and training lasted only 20 epochs.
-- **Continuous training**: the CT model is a 2-epoch pipeline check, not a production candidate; the production model is retrained manually on the full dataset. Corrections are trusted without review.
-- **Deployment**: CD targets a temporary kind cluster; the permanent Minikube cluster is updated by hand. The autoscaler is configured but no scale-out was observed, and the cluster has no feedback token or persistent volume.
-- **Alerting**: an alert is a failed workflow run (no e-mail or chat channel), and the CI gate checks the presence of `reports/alerts.json` rather than recomputing metrics.
-
-<div align="center">
-
-Built with **PyTorch**, **YOLOv8**, **FastAPI**, **DVC**, **MLflow**, **Docker** and **Kubernetes** 🚀
 
 </div>
